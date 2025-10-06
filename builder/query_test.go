@@ -1184,3 +1184,109 @@ func TestPostgRESTEndToEndJOIN(t *testing.T) {
 		t.Logf("Args: %v", args)
 	})
 }
+
+func TestOrderByParsing(t *testing.T) {
+	b := builder.NewPostgRESTBuilder()
+
+	t.Run("plain_column_defaults_to_asc", func(t *testing.T) {
+		params := url.Values{
+			"order": []string{"name"},
+		}
+
+		query, err := b.ParseURLParams("artist", params)
+		if err != nil {
+			t.Fatalf("failed to parse URL params: %v", err)
+		}
+
+		if len(query.Order) != 1 {
+			t.Fatalf("Expected 1 order clause, got %d", len(query.Order))
+		}
+
+		if query.Order[0] != "name ASC" {
+			t.Errorf("Expected 'name ASC', got: %s", query.Order[0])
+		}
+	})
+
+	t.Run("explicit_asc_direction", func(t *testing.T) {
+		params := url.Values{
+			"order": []string{"name.asc"},
+		}
+
+		query, err := b.ParseURLParams("artist", params)
+		if err != nil {
+			t.Fatalf("failed to parse URL params: %v", err)
+		}
+
+		if len(query.Order) != 1 {
+			t.Fatalf("Expected 1 order clause, got %d", len(query.Order))
+		}
+
+		if query.Order[0] != "name ASC" {
+			t.Errorf("Expected 'name ASC', got: %s", query.Order[0])
+		}
+	})
+
+	t.Run("explicit_desc_direction", func(t *testing.T) {
+		params := url.Values{
+			"order": []string{"title.desc"},
+		}
+
+		query, err := b.ParseURLParams("album", params)
+		if err != nil {
+			t.Fatalf("failed to parse URL params: %v", err)
+		}
+
+		if len(query.Order) != 1 {
+			t.Fatalf("Expected 1 order clause, got %d", len(query.Order))
+		}
+
+		if query.Order[0] != "title DESC" {
+			t.Errorf("Expected 'title DESC', got: %s", query.Order[0])
+		}
+	})
+
+	t.Run("multiple_columns", func(t *testing.T) {
+		params := url.Values{
+			"order": []string{"name,title.desc"},
+		}
+
+		query, err := b.ParseURLParams("album", params)
+		if err != nil {
+			t.Fatalf("failed to parse URL params: %v", err)
+		}
+
+		if len(query.Order) != 2 {
+			t.Fatalf("Expected 2 order clauses, got %d", len(query.Order))
+		}
+
+		if query.Order[0] != "name ASC" {
+			t.Errorf("Expected first order 'name ASC', got: %s", query.Order[0])
+		}
+
+		if query.Order[1] != "title DESC" {
+			t.Errorf("Expected second order 'title DESC', got: %s", query.Order[1])
+		}
+	})
+
+	t.Run("order_by_in_sql_generation", func(t *testing.T) {
+		params := url.Values{
+			"order": []string{"name"},
+		}
+
+		query, err := b.ParseURLParams("artist", params)
+		if err != nil {
+			t.Fatalf("failed to parse URL params: %v", err)
+		}
+
+		sb, err := b.BuildSQL(query)
+		if err != nil {
+			t.Fatalf("failed to build SQL: %v", err)
+		}
+
+		sql, _ := sb.BuildWithFlavor(sqlbuilder.MySQL)
+
+		if !strings.Contains(sql, "ORDER BY name ASC") {
+			t.Errorf("Expected SQL to contain 'ORDER BY name ASC', got: %s", sql)
+		}
+	})
+}

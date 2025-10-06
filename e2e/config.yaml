@@ -1,0 +1,15 @@
+services:
+  chinook:
+    dsn: testuser:testpass@tcp(127.0.0.1:3307)/chinook_auto_increment
+    schemas:
+      Album: {}
+      Artist: {}
+      Customer: {}
+      Employee: {}
+      Genre: {}
+      Invoice: {}
+      InvoiceLine: {}
+      MediaType: {}
+      Playlist: {}
+      PlaylistTrack: {}
+      Track: {}

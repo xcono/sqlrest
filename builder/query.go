@@ -113,6 +113,9 @@ func (b *PostgRESTBuilder) ParseURLParams(table string, params url.Values) (*Pos
 						orderParts[i] = column + " " + direction
 					}
 				}
+			} else {
+				// Plain column name defaults to ASC
+				orderParts[i] = part + " ASC"
 			}
 		}
 		query.Order = orderParts
