@@ -1,5 +1,3 @@
-//go:build e2e
-
 package e2e
 
 import (
@@ -13,38 +11,6 @@ import (
 func TestIncompatibilities(t *testing.T) {
 	suite := NewTestSuite(t, nil)
 	defer suite.Close()
-
-	t.Run("ordering_with_ties", func(t *testing.T) {
-		// This test documents the ordering incompatibility when there are ties in the ORDER BY clause
-		// PostgREST (PostgreSQL) and sqlrest (MySQL) may return results in different orders
-		// when there are ties in the sorting criteria due to different collation settings
-		// and database-specific tie-breaking behavior.
-
-		query := "/album?order=title.desc&limit=10"
-
-		// Query PostgREST
-		pgResp := suite.QueryPostgREST(t, query)
-
-		// Query SQL-REST
-		srResp := suite.QuerySQLREST(t, query)
-
-		// Compare responses - this may fail due to ordering differences
-		if err := compare.CompareResponses(pgResp, srResp); err != nil {
-			t.Logf("Expected incompatibility detected: %v", err)
-			t.Logf("This is likely due to different database collation settings")
-			t.Logf("PostgreSQL and MySQL handle ties in ORDER BY differently")
-
-			// Log the actual data for analysis
-			t.Logf("PostgREST response: %+v", pgResp.Data)
-			t.Logf("SQLREST response: %+v", srResp.Data)
-
-			// This test documents the incompatibility but doesn't fail
-			// In a real scenario, you might want to add a secondary sort key
-			// to make ordering deterministic across different databases
-		} else {
-			t.Logf("No incompatibility detected - responses match")
-		}
-	})
 
 	t.Run("limit_offset_without_order", func(t *testing.T) {
 		// This test documents potential ordering differences when using LIMIT/OFFSET

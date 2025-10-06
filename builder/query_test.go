@@ -117,7 +117,7 @@ func TestPostgRESTURLParsing(t *testing.T) {
 			expected: &builder.PostgRESTQuery{
 				Table:  "users",
 				Select: []string{"id", "name", "email"},
-				Order:  []string{"name", "id"},
+				Order:  []string{"name ASC", "id ASC"},
 				Limit:  10,
 				Offset: 5,
 			},

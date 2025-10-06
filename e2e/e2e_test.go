@@ -1,5 +1,3 @@
-//go:build e2e
-
 package e2e
 
 import (
@@ -51,6 +49,11 @@ func TestE2EComparison(t *testing.T) {
 			Name:        "limit_offset",
 			Query:       "/track?limit=5&offset=2",
 			Description: "Pagination",
+		},
+		{
+			Name:        "limit_offset_without_order",
+			Query:       "/track?limit=5&offset=2",
+			Description: "Pagination without explicit ORDER BY",
 		},
 		{
 			Name:        "complex_query",
