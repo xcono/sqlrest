@@ -1,0 +1,19 @@
+services:
+  api:
+    dsn: mysql://root:nopass@tcp(127.0.0.1:3306)/ss
+    schemas:
+      # schema name used as a default
+      # for table, endpoint, type names.
+      users:
+        table: users
+        # optional, used for tuning the api response
+        # error if column not found in the database
+        fields:
+          created:
+            widget:
+              sorted: true
+              filter: true
+              column: created
+          pass:
+            widget:
+              hidden: true

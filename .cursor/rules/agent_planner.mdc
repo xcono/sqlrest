@@ -1,0 +1,56 @@
+---
+description: Planning agent rules for implementing Supabase and shadcn specs via task decomposition in Cursor.
+alwaysApply: true
+---
+
+# Planning agent rules (Supabase and shadcn projects)
+
+## Inputs and context
+
+- Read the spec and any accompanying design docs fully before coding.
+- Summarize objectives, constraints, and external systems.
+- Identify domains/packages; prefer package-by-purpose organization.
+- Reference Cursor rules behavior: [Cursor Rules](https://docs.cursor.com/en/context/rules).
+
+## Decomposition strategy
+
+- Split the spec into independent, minimal tasks that each compile/run on their own (e.g., one package/file at a time).
+- Use a modular/spec decomposition mindset: find non-overlapping subtasks that can be implemented and verified independently (cf. [Springer 2023 modular synthesis](https://link.springer.com/article/10.1007/s11334-022-00462-6)).
+- Define acceptance criteria per task (build passes, tests green, examples compile).
+- Prefer breadth-first scaffolding (types, interfaces, stubs) followed by depth per feature.
+
+## Sequencing heuristics
+
+1. Establish foundations: `package.json`, base packages, shared types, config.
+2. Implement domain packages in small steps; keep imports acyclic.
+3. For risky logic (parsers, concurrency, security), write tests first.
+4. For thin adapters, code first then add tests immediately.
+5. After each task: fmt → build → vet → (tests) → fix.
+6. Only then proceed to the next task; keep diffs small.
+
+## Tool usage
+
+- After edits: run `pnpm fmt`, `pnpm build`, `pnpm vet`, `pnpm test -race` (as applicable).
+- Prefer absolute paths in commands where required by the environment.
+- Avoid long-running interactive tasks; pass non-interactive flags.
+
+## Documentation and examples
+
+- Update README and package package.json in parallel with features.
+- Provide minimal examples for new public APIs.
+
+---
+
+## Memory and prompting best practices (Cursor)
+
+- Keep prompts specific; include only relevant context.
+- Use checklists/acceptance criteria per task.
+- Maintain a todo list; mark tasks completed as soon as green.
+- Consider insights on Cursor usage and prompting:
+  - [Medium: getting better results with Cursor rules](https://medium.com/@aashari/getting-better-results-from-cursor-ai-with-simple-rules-cbc87346ad88)
+  - [Cursor prompt anatomy](https://dev.to/tawe/the-anatomy-of-a-cursor-prompt-2hb8)
+  - [Advanced prompting and rules](https://extremelysunnyyk.medium.com/maximizing-your-cursor-use-advanced-prompting-cursor-rules-and-tooling-integration-496181fa919c)
+  - [Lullabot Cursor rules and memory banks](https://www.lullabot.com/articles/supercharge-your-ai-coding-cursor-rules-and-memory-banks)
+  - [Cursor under the hood](https://roman.pt/posts/cursor-under-the-hood/)
+  - [Task decomposition strategies](https://apxml.com/courses/agentic-llm-memory-architectures/chapter-4-complex-planning-tool-integration/task-decomposition-strategies)
+  - [Smaller LLMs with task decomposition](https://www.amazon.science/blog/how-task-decomposition-and-smaller-llms-can-make-ai-more-affordable)
