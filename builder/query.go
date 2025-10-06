@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -131,21 +132,21 @@ func (b *PostgRESTBuilder) ParseURLParams(table string, params url.Values) (*Pos
 		}
 	}
 
-	// Parse embed parameter (legacy support)
+	// Parse embed parameter (legacy support unified with EmbedParser)
 	if embedParam := params.Get("embed"); embedParam != "" {
-		// For backward compatibility, parse simple embed parameter
 		embedStrings := strings.Split(embedParam, ",")
+		parser := NewEmbedParser(nil)
 		for _, embedStr := range embedStrings {
 			embedStr = strings.TrimSpace(embedStr)
-			if embedStr != "" {
-				// Create simple embed definition for backward compatibility
-				embed := EmbedDefinition{
-					Table:    embedStr,
-					JoinType: JoinTypeLeft, // Default to left join
-					Columns:  []string{"*"},
-				}
-				query.Embeds = append(query.Embeds, embed)
+			if embedStr == "" {
+				continue
 			}
+			if embed, err := parser.ParseEmbedSyntax(embedStr, table); err == nil && embed != nil {
+				query.Embeds = append(query.Embeds, *embed)
+				continue
+			}
+			// Fallback to simple form if parsing fails
+			query.Embeds = append(query.Embeds, EmbedDefinition{Table: embedStr, JoinType: JoinTypeLeft, Columns: []string{"*"}})
 		}
 	}
 
@@ -355,6 +356,11 @@ func (b *PostgRESTBuilder) BuildSQL(q *PostgRESTQuery) (*sqlbuilder.SelectBuilde
 	// Build JOIN clauses
 	if err := b.buildJoinClauses(sb, q, aliasManager); err != nil {
 		return nil, err
+	}
+
+	// Normalize filters and order-by to use aliases only when embeds are present
+	if len(q.Embeds) > 0 {
+		b.normalizeFiltersAndOrder(q, aliasManager)
 	}
 
 	// Apply filters (sort for deterministic output)
@@ -626,7 +632,12 @@ func (b *PostgRESTBuilder) buildSelectClause(sb *sqlbuilder.SelectBuilder, q *Po
 			if col == "*" {
 				selectColumns = append(selectColumns, fmt.Sprintf("%s.*", mainTableAlias))
 			} else {
-				selectColumns = append(selectColumns, fmt.Sprintf("%s.%s", mainTableAlias, col))
+				// Emit stable alias for nesting only when embeds are present
+				if len(q.Embeds) > 0 {
+					selectColumns = append(selectColumns, fmt.Sprintf("%s.%s AS %s__%s", mainTableAlias, col, q.Table, col))
+				} else {
+					selectColumns = append(selectColumns, fmt.Sprintf("%s.%s", mainTableAlias, col))
+				}
 			}
 		}
 	} else {
@@ -673,7 +684,8 @@ func (b *PostgRESTBuilder) buildEmbedSelectColumns(embed EmbedDefinition, aliasM
 		if col == "*" {
 			columns = append(columns, fmt.Sprintf("%s.*", alias))
 		} else {
-			columns = append(columns, fmt.Sprintf("%s.%s", alias, col))
+			// Emit stable alias for nesting
+			columns = append(columns, fmt.Sprintf("%s.%s AS %s__%s", alias, col, embed.Table, col))
 		}
 	}
 
@@ -715,6 +727,9 @@ func (b *PostgRESTBuilder) buildJoinClause(sb *sqlbuilder.SelectBuilder, embed E
 			parentTable)
 	}
 
+	// Rewrite join condition to use aliases instead of table names
+	joinCondition = rewriteJoinConditionToAliases(joinCondition, aliasManager.GetAllAliases())
+
 	// Apply JOIN with appropriate type
 	joinOption := embed.JoinType.ToSQLJoinOption()
 	sb.JoinWithOption(joinOption, fmt.Sprintf("%s AS %s", embed.Table, embedAlias), joinCondition)
@@ -727,4 +742,90 @@ func (b *PostgRESTBuilder) buildJoinClause(sb *sqlbuilder.SelectBuilder, embed E
 	}
 
 	return nil
+}
+
+// rewriteJoinConditionToAliases rewrites occurrences of table-qualified identifiers to alias-qualified.
+// Example: users.id = posts.user_id -> t1.id = t2.user_id
+func rewriteJoinConditionToAliases(cond string, aliases map[string]string) string {
+	if cond == "" || len(aliases) == 0 {
+		return cond
+	}
+	rewritten := cond
+	for table, alias := range aliases {
+		// Replace word-boundary table. with alias.
+		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(table) + `\.`)
+		rewritten = re.ReplaceAllString(rewritten, alias+".")
+	}
+	return rewritten
+}
+
+// normalizeFiltersAndOrder qualifies filter columns and order-by columns with table aliases.
+func (b *PostgRESTBuilder) normalizeFiltersAndOrder(q *PostgRESTQuery, aliasManager *JoinAliasManager) {
+	if q == nil || aliasManager == nil {
+		return
+	}
+	// Qualify filters
+	for i := range q.Filters {
+		q.Filters[i] = b.qualifyFilterWithAliases(q.Filters[i], q.Table, aliasManager)
+	}
+	// Qualify order-by entries
+	if len(q.Order) > 0 {
+		qualified := make([]string, 0, len(q.Order))
+		for _, part := range q.Order {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			col := part
+			dir := ""
+			// Split by space to extract direction, if present
+			if idx := strings.LastIndex(part, " "); idx != -1 {
+				col = strings.TrimSpace(part[:idx])
+				dir = strings.TrimSpace(part[idx+1:])
+			}
+			qualifiedCol := qualifyColumnWithAliases(col, q.Table, aliasManager)
+			if dir != "" {
+				qualified = append(qualified, qualifiedCol+" "+dir)
+			} else {
+				qualified = append(qualified, qualifiedCol)
+			}
+		}
+		q.Order = qualified
+	}
+}
+
+func (b *PostgRESTBuilder) qualifyFilterWithAliases(filter interface{}, mainTable string, aliasManager *JoinAliasManager) interface{} {
+	switch f := filter.(type) {
+	case Filter:
+		f.Column = qualifyColumnWithAliases(f.Column, mainTable, aliasManager)
+		return f
+	case *LogicalFilter:
+		if f == nil || len(f.Filters) == 0 {
+			return filter
+		}
+		for i := range f.Filters {
+			f.Filters[i] = b.qualifyFilterWithAliases(f.Filters[i], mainTable, aliasManager)
+		}
+		return f
+	default:
+		return filter
+	}
+}
+
+func qualifyColumnWithAliases(column string, mainTable string, aliasManager *JoinAliasManager) string {
+	column = strings.TrimSpace(column)
+	if column == "" {
+		return column
+	}
+	if strings.Contains(column, ".") {
+		parts := strings.SplitN(column, ".", 2)
+		tbl := parts[0]
+		rest := parts[1]
+		if alias, ok := aliasManager.GetAliasForTable(tbl); ok {
+			return alias + "." + rest
+		}
+		return column
+	}
+	// Unqualified columns default to main table alias
+	return aliasManager.GetAlias(mainTable) + "." + column
 }

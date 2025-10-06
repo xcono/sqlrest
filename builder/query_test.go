@@ -608,7 +608,7 @@ func TestPostgRESTEmbedding(t *testing.T) {
 			expected: &builder.PostgRESTQuery{
 				Table: "posts",
 				Embeds: []builder.EmbedDefinition{
-					{Table: "author(profile)", JoinType: builder.JoinTypeLeft, Columns: []string{"*"}},
+					{Table: "author", JoinType: builder.JoinTypeLeft, Columns: []string{"*"}},
 				},
 			},
 		},
@@ -1089,7 +1089,7 @@ func TestPostgRESTEndToEndJOIN(t *testing.T) {
 
 		// Verify the complete PostgREST JOIN query
 		expectedParts := []string{
-			"SELECT t1.id, t1.name, t2.id, t2.title, t3.text",
+			"SELECT t1.id AS users__id, t1.name AS users__name, t2.id AS posts__id, t2.title AS posts__title, t3.text AS comments__text",
 			"FROM users AS t1",
 			"INNER JOIN posts AS t2",
 			"LEFT JOIN comments AS t3",

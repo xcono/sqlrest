@@ -51,7 +51,7 @@ func (jam *JoinAliasManager) GetAlias(table string) string {
 
 	// Generate new alias
 	jam.counter++
-	alias := fmt.Sprintf("t%d", jam.counter)
+	alias := "t" + fmt.Sprint(jam.counter)
 	jam.aliases[table] = alias
 	return alias
 }
@@ -85,17 +85,15 @@ func NewForeignKeyResolver(db *sql.DB) *ForeignKeyResolver {
 func (fkr *ForeignKeyResolver) DetectRelationship(parentTable, childTable string) (string, error) {
 	// Try common naming conventions
 	possibleKeys := []string{
-		fmt.Sprintf("%s_id", parentTable),
-		fmt.Sprintf("%sId", parentTable),
-		fmt.Sprintf("id"),
+		parentTable + "_id",
+		parentTable + "Id",
+		"id",
 	}
 
 	// Check if any of these columns exist in the child table
 	for _, key := range possibleKeys {
 		if fkr.columnExists(childTable, key) {
-			return fmt.Sprintf("%s.%s = %s.%s",
-				parentTable, "id",
-				childTable, key), nil
+			return parentTable + "." + "id" + " = " + childTable + "." + key, nil
 		}
 	}
 
@@ -104,7 +102,7 @@ func (fkr *ForeignKeyResolver) DetectRelationship(parentTable, childTable string
 
 // columnExists checks if a column exists in a table
 func (fkr *ForeignKeyResolver) columnExists(table, column string) bool {
-	query := fmt.Sprintf("SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?")
+	query := "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?"
 	var count int
 	err := fkr.db.QueryRow(query, table, column).Scan(&count)
 	return err == nil && count > 0
