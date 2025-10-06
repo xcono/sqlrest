@@ -42,13 +42,9 @@ func normalizeData(data interface{}) interface{} {
 	var normalized interface{}
 	json.Unmarshal(jsonBytes, &normalized)
 
-	// Sort arrays for order-independent comparison
-	if arr, ok := normalized.([]interface{}); ok {
-		// Only sort if the array is not already in a consistent order
-		if !isConsistentlyOrdered(arr) {
-			sortArray(arr)
-		}
-	}
+	// For ORDER BY tests, we should NOT sort arrays as we want to preserve the order
+	// Only sort arrays for order-independent comparison when explicitly needed
+	// This preserves the actual ORDER BY results from the database
 
 	return normalized
 }

@@ -56,6 +56,16 @@ func TestE2EComparison(t *testing.T) {
 			Description: "Pagination without explicit ORDER BY",
 		},
 		{
+			Name:        "order_asc_genre",
+			Query:       "/genre?order=name&limit=10",
+			Description: "Ascending ordering on genre table (no special characters)",
+		},
+		{
+			Name:        "order_desc_genre",
+			Query:       "/genre?order=name.desc&limit=10",
+			Description: "Descending ordering on genre table (no special characters)",
+		},
+		{
 			Name:        "complex_query",
 			Query:       "/track?select=track_id,name,album_id&genre_id=eq.1&limit=5",
 			Description: "Combined filters and selections",

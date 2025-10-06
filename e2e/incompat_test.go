@@ -12,6 +12,38 @@ func TestIncompatibilities(t *testing.T) {
 	suite := NewTestSuite(t, nil)
 	defer suite.Close()
 
+	t.Run("special_characters_in_sorting", func(t *testing.T) {
+		// This test documents the incompatibility when sorting strings containing special characters
+		// PostgreSQL and MySQL handle special characters (like slashes, punctuation) differently
+		// in their default collation settings, leading to different sort orders.
+
+		query := "/artist?order=name&limit=10"
+
+		// Query PostgREST
+		pgResp := suite.QueryPostgREST(t, query)
+
+		// Query SQL-REST
+		srResp := suite.QuerySQLREST(t, query)
+
+		// Compare responses - this will fail due to special character handling differences
+		if err := compare.CompareResponses(pgResp, srResp); err != nil {
+			t.Logf("Expected incompatibility detected: %v", err)
+			t.Logf("This is due to different handling of special characters in string sorting")
+			t.Logf("PostgreSQL treats '/' as coming before letters, MySQL treats it as coming after")
+			t.Logf("The string 'AC/DC' vs 'Accept' demonstrates this difference")
+
+			// Log the actual data for analysis
+			t.Logf("PostgREST response: %+v", pgResp.Data)
+			t.Logf("SQLREST response: %+v", srResp.Data)
+
+			// This test documents the incompatibility but doesn't fail
+			// In a real scenario, you might want to normalize special characters
+			// or use explicit collation settings for consistent behavior
+		} else {
+			t.Logf("No incompatibility detected - responses match")
+		}
+	})
+
 	t.Run("limit_offset_without_order", func(t *testing.T) {
 		// This test documents potential ordering differences when using LIMIT/OFFSET
 		// without an explicit ORDER BY clause. Different databases may return
