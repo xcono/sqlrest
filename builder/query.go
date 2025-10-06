@@ -377,10 +377,34 @@ func (b *PostgRESTBuilder) BuildSQL(q *PostgRESTQuery) (*sqlbuilder.SelectBuilde
 		}
 	}
 
-	// Apply ordering
-	if len(q.Order) > 0 {
-		sb.OrderBy(q.Order...)
-	}
+    // Apply ordering
+    if len(q.Order) > 0 {
+        // When JOINs/embeds are present, unqualified columns in ORDER BY can be ambiguous.
+        // Prefix with main table alias unless already qualified.
+        orderParts := make([]string, 0, len(q.Order))
+        for _, part := range q.Order {
+            p := strings.TrimSpace(part)
+            // Extract potential "col DESC" or "col ASC"
+            col := p
+            dir := ""
+            if idx := strings.LastIndex(p, " "); idx > 0 {
+                col = strings.TrimSpace(p[:idx])
+                dir = strings.TrimSpace(p[idx+1:])
+            }
+
+            // Qualify with alias if embeds exist and column is unqualified (no dot)
+            if len(q.Embeds) > 0 && !strings.Contains(col, ".") {
+                col = fmt.Sprintf("%s.%s", mainTableAlias, col)
+            }
+
+            if dir != "" {
+                orderParts = append(orderParts, col+" "+dir)
+            } else {
+                orderParts = append(orderParts, col)
+            }
+        }
+        sb.OrderBy(orderParts...)
+    }
 
 	// Apply limit and offset
 	if q.Limit > 0 {
@@ -635,14 +659,15 @@ func (b *PostgRESTBuilder) buildSelectClause(sb *sqlbuilder.SelectBuilder, q *Po
 		selectColumns = append(selectColumns, fmt.Sprintf("%s.*", mainTableAlias))
 	}
 
-	// Add columns from embedded tables
-	for _, embed := range q.Embeds {
-		embedColumns, err := b.buildEmbedSelectColumns(embed, aliasManager)
-		if err != nil {
-			return err
-		}
-		selectColumns = append(selectColumns, embedColumns...)
-	}
+    // Add columns from embedded tables
+    for _, embed := range q.Embeds {
+        // Start alias path with the embed table name
+        embedColumns, err := b.buildEmbedSelectColumns(embed, aliasManager, embed.Table)
+        if err != nil {
+            return err
+        }
+        selectColumns = append(selectColumns, embedColumns...)
+    }
 
 	sb.Select(selectColumns...)
 	return nil
@@ -659,7 +684,7 @@ func (b *PostgRESTBuilder) preCreateEmbedAliases(embed EmbedDefinition, aliasMan
 }
 
 // buildEmbedSelectColumns builds SELECT columns for an embed definition
-func (b *PostgRESTBuilder) buildEmbedSelectColumns(embed EmbedDefinition, aliasManager *JoinAliasManager) ([]string, error) {
+func (b *PostgRESTBuilder) buildEmbedSelectColumns(embed EmbedDefinition, aliasManager *JoinAliasManager, path string) ([]string, error) {
 	var columns []string
 
 	// Get alias for this embed table
@@ -670,16 +695,21 @@ func (b *PostgRESTBuilder) buildEmbedSelectColumns(embed EmbedDefinition, aliasM
 
 	// Add columns from this embed
 	for _, col := range embed.Columns {
-		if col == "*" {
-			columns = append(columns, fmt.Sprintf("%s.*", alias))
-		} else {
-			columns = append(columns, fmt.Sprintf("%s.%s", alias, col))
-		}
+        if col == "*" {
+            // Fallback: select all without aliasing when '*' is used
+            // Note: Nested scanner won't be able to disambiguate these columns.
+            columns = append(columns, fmt.Sprintf("%s.*", alias))
+            continue
+        }
+        // Alias columns with a stable nested path for scanner, e.g. posts__id, posts__comments__text
+        aliasName := fmt.Sprintf("%s__%s", path, col)
+        columns = append(columns, fmt.Sprintf("%s.%s AS %s", alias, col, aliasName))
 	}
 
 	// Add columns from nested embeds
 	for _, nestedEmbed := range embed.NestedEmbeds {
-		nestedColumns, err := b.buildEmbedSelectColumns(nestedEmbed, aliasManager)
+        nestedPath := fmt.Sprintf("%s__%s", path, nestedEmbed.Table)
+        nestedColumns, err := b.buildEmbedSelectColumns(nestedEmbed, aliasManager, nestedPath)
 		if err != nil {
 			return nil, err
 		}

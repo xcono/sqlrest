@@ -727,6 +727,135 @@ func TestSupabaseCompatibility(t *testing.T) {
 	})
 }
 
+// TestJoinEmbeddingNestedScanning verifies JOIN embedding produces nested JSON objects
+func TestJoinEmbeddingNestedScanning(t *testing.T) {
+    db := setupTestDB(t)
+    defer db.Close()
+
+    // Create related tables for embedding
+    _, err := db.Exec(`
+        CREATE TABLE posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            users_id INTEGER,
+            title TEXT
+        );
+    `)
+    if err != nil {
+        t.Fatalf("Failed to create posts table: %v", err)
+    }
+
+    _, err = db.Exec(`
+        CREATE TABLE profiles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            users_id INTEGER,
+            bio TEXT
+        );
+    `)
+    if err != nil {
+        t.Fatalf("Failed to create profiles table: %v", err)
+    }
+
+    // Seed one-to-one like data for deterministic nesting
+    _, err = db.Exec(`
+        INSERT INTO posts (users_id, title) VALUES 
+        (1, 'Alice Post'),
+        (2, 'Bob Post');
+    `)
+    if err != nil {
+        t.Fatalf("Failed to insert posts: %v", err)
+    }
+
+    _, err = db.Exec(`
+        INSERT INTO profiles (users_id, bio) VALUES 
+        (1, 'Alice Bio'),
+        (2, 'Bob Bio');
+    `)
+    if err != nil {
+        t.Fatalf("Failed to insert profiles: %v", err)
+    }
+
+    server := createTestServer(t, db)
+    defer server.Close()
+
+    t.Run("embed_single_level", func(t *testing.T) {
+        // Expect nested object at key "posts" with id and title
+        resp, err := http.Get(server.URL + "/users?select=id,name,posts!left(id,title)&order=name&limit=1")
+        if err != nil {
+            t.Fatalf("Failed to make request: %v", err)
+        }
+        defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK {
+            body, _ := io.ReadAll(resp.Body)
+            t.Fatalf("Expected 200, got %d: %s", resp.StatusCode, string(body))
+        }
+
+        var result []map[string]interface{}
+        if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+            t.Fatalf("Failed to decode response: %v", err)
+        }
+
+        if len(result) != 1 {
+            t.Fatalf("Expected 1 row, got %d", len(result))
+        }
+
+        row := result[0]
+        // Validate base columns
+        if row["id"] == nil || row["name"] == nil {
+            t.Fatalf("Expected base columns id and name present")
+        }
+
+        // Validate nested object structure
+        postsObj, ok := row["posts"].(map[string]interface{})
+        if !ok {
+            t.Fatalf("Expected nested 'posts' object, got: %T", row["posts"])
+        }
+
+        if postsObj["id"] == nil || postsObj["title"] == nil {
+            t.Fatalf("Expected 'posts' to contain id and title")
+        }
+    })
+
+    t.Run("embed_multiple_single_level", func(t *testing.T) {
+        // Expect two nested objects: posts and profiles
+        resp, err := http.Get(server.URL + "/users?select=id,name,posts!left(id,title),profiles!left(bio)&order=name&limit=1")
+        if err != nil {
+            t.Fatalf("Failed to make request: %v", err)
+        }
+        defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK {
+            body, _ := io.ReadAll(resp.Body)
+            t.Fatalf("Expected 200, got %d: %s", resp.StatusCode, string(body))
+        }
+
+        var result []map[string]interface{}
+        if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+            t.Fatalf("Failed to decode response: %v", err)
+        }
+
+        if len(result) != 1 {
+            t.Fatalf("Expected 1 row, got %d", len(result))
+        }
+
+        row := result[0]
+
+        // Validate posts object
+        if _, ok := row["posts"].(map[string]interface{}); !ok {
+            t.Fatalf("Expected nested 'posts' object")
+        }
+
+        // Validate profiles object
+        profilesObj, ok := row["profiles"].(map[string]interface{})
+        if !ok {
+            t.Fatalf("Expected nested 'profiles' object")
+        }
+        if profilesObj["bio"] == nil {
+            t.Fatalf("Expected 'profiles' to contain bio")
+        }
+    })
+}
+
 // TestSpecialCharacterHandling tests how PostgREST handles special characters in URLs and data
 func TestSpecialCharacterHandling(t *testing.T) {
 	db := setupTestDB(t)

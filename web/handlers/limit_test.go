@@ -1,33 +1,36 @@
 package handlers
 
 import (
-	"database/sql"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
-	"testing"
+    "database/sql"
+    "encoding/json"
+    "net/http"
+    "net/http/httptest"
+    "testing"
 
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/xcono/legs/web/database"
+    _ "github.com/mattn/go-sqlite3"
+    "github.com/xcono/legs/web/database"
 )
 
 func TestLimitParameter(t *testing.T) {
-	// Create a test database connection
-	dsn := "root:nopass@tcp(127.0.0.1:3306)/test"
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		t.Skipf("Skipping database test: %v", err)
-		return
-	}
+    // Create a test database connection (SQLite in-memory for CI stability)
+    db, err := sql.Open("sqlite3", ":memory:")
+    if err != nil {
+        t.Fatalf("failed to open sqlite database: %v", err)
+    }
+    // Ensure DB is reachable; otherwise, skip
+    if pingErr := db.Ping(); pingErr != nil {
+        t.Skipf("Skipping database test (unreachable): %v", pingErr)
+        return
+    }
 	defer db.Close()
 
-	// Create test table
-	_, err = db.Exec("DROP TABLE IF EXISTS test_limit")
-	if err != nil {
-		t.Fatalf("failed to drop test table: %v", err)
-	}
+    // Create test table
+    _, err = db.Exec("DROP TABLE IF EXISTS test_limit")
+    if err != nil {
+        t.Fatalf("failed to drop test table: %v", err)
+    }
 
-	_, err = db.Exec("CREATE TABLE test_limit (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255))")
+    _, err = db.Exec("CREATE TABLE test_limit (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
 	if err != nil {
 		t.Fatalf("failed to create test table: %v", err)
 	}
@@ -37,9 +40,9 @@ func TestLimitParameter(t *testing.T) {
 		db.Exec("DROP TABLE IF EXISTS test_limit")
 	}()
 
-	// Insert test data (more than the limit we'll test)
-	_, err = db.Exec("INSERT INTO test_limit (name) VALUES (?), (?), (?), (?), (?)",
-		"User1", "User2", "User3", "User4", "User5")
+    // Insert test data (more than the limit we'll test)
+    _, err = db.Exec("INSERT INTO test_limit (name) VALUES (?), (?), (?), (?), (?)",
+        "User1", "User2", "User3", "User4", "User5")
 	if err != nil {
 		t.Fatalf("failed to insert test data: %v", err)
 	}

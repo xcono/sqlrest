@@ -280,6 +280,11 @@ func TestPostgRESTIntegration(t *testing.T) {
 		t.Skipf("Skipping database test: %v", err)
 		return
 	}
+    // Verify connectivity before proceeding
+    if pingErr := db.Ping(); pingErr != nil {
+        t.Skipf("Skipping database test (unreachable): %v", pingErr)
+        return
+    }
 	defer db.Close()
 
 	// Create test table
