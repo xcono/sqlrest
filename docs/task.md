@@ -219,9 +219,9 @@ LIMIT ?
 - **Table Aliasing**: Automatic alias management for complex queries
 - **Nested Embedding**: Recursive JOIN generation
 - **Comprehensive Testing**: 100% test coverage
+- **JOIN Result Processing**: Update database scanner for nested objects
 
 ### **🔄 NEXT PRIORITIES**
-1. **JOIN Result Processing**: Update database scanner for nested objects
 2. **Response Formatting**: Format nested JOIN results as PostgREST-compatible JSON
 3. **Integration Testing**: End-to-end testing with real databases
 

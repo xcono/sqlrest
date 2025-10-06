@@ -1,8 +1,9 @@
-module github.com/xcono/legs
+module github.com/xcono/sqlrest
 
 go 1.25
 
 require (
+	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/urfave/cli/v2 v2.27.7
 	github.com/zeromicro/go-zero v1.9.1
 )
@@ -11,7 +12,6 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/huandu/go-clone v1.7.3 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
-	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 )
 
 require (

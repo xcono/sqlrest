@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/huandu/go-sqlbuilder"
-	"github.com/xcono/legs/web/database"
-	"github.com/xcono/legs/web/response"
+	"github.com/xcono/sqlrest/web/database"
+	"github.com/xcono/sqlrest/web/response"
 )
 
 // InsertHandler handles POST requests for data insertion

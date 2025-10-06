@@ -8,12 +8,12 @@ import (
 	"sort"
 
 	"github.com/urfave/cli/v2"
-	"github.com/xcono/legs/schema"
+	"github.com/xcono/sqlrest/schema"
 	"github.com/zeromicro/go-zero/core/conf"
 
 	// mysql driver
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/xcono/legs/web"
+	"github.com/xcono/sqlrest/web"
 )
 
 var configFile = flag.String("f", "config.yaml", "the config file")

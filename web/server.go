@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/xcono/legs/schema"
-	"github.com/xcono/legs/web/database"
-	"github.com/xcono/legs/web/handlers"
+	"github.com/xcono/sqlrest/schema"
+	"github.com/xcono/sqlrest/web/database"
+	"github.com/xcono/sqlrest/web/handlers"
 )
 
 func StartServer(c schema.Config) {

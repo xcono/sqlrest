@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/xcono/legs/web/database"
-	"github.com/xcono/legs/web/query"
-	"github.com/xcono/legs/web/response"
+	"github.com/xcono/sqlrest/web/database"
+	"github.com/xcono/sqlrest/web/query"
+	"github.com/xcono/sqlrest/web/response"
 )
 
 // Router handles request routing and delegates to appropriate handlers

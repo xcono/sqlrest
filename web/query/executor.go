@@ -5,9 +5,9 @@ import (
 	"net/url"
 
 	"github.com/huandu/go-sqlbuilder"
-	"github.com/xcono/legs/builder"
-	"github.com/xcono/legs/web/database"
-	"github.com/xcono/legs/web/response"
+	"github.com/xcono/sqlrest/builder"
+	"github.com/xcono/sqlrest/web/database"
+	"github.com/xcono/sqlrest/web/response"
 )
 
 // Executor handles query execution

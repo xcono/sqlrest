@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/xcono/legs/web/database"
-	"github.com/xcono/legs/web/handlers"
+	"github.com/xcono/sqlrest/web/database"
+	"github.com/xcono/sqlrest/web/handlers"
 )
 
 // setupTestDB creates an in-memory SQLite database for testing

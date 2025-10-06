@@ -3,8 +3,8 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/xcono/legs/web/query"
-	"github.com/xcono/legs/web/response"
+	"github.com/xcono/sqlrest/web/query"
+	"github.com/xcono/sqlrest/web/response"
 )
 
 // SelectHandler handles GET requests for data retrieval

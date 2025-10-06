@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/xcono/legs/builder"
+	"github.com/xcono/sqlrest/builder"
 )
 
 // TestEmbedDefinition tests the EmbedDefinition data structure

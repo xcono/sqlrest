@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/xcono/legs/web/database"
+	"github.com/xcono/sqlrest/web/database"
 )
 
 func TestLimitParameter(t *testing.T) {
@@ -19,11 +19,11 @@ func TestLimitParameter(t *testing.T) {
 		t.Skipf("Skipping database test: %v", err)
 		return
 	}
-    // Ensure the database is reachable; skip if not
-    if pingErr := db.Ping(); pingErr != nil {
-        t.Skipf("Skipping database test (MySQL unreachable): %v", pingErr)
-        return
-    }
+	// Ensure the database is reachable; skip if not
+	if pingErr := db.Ping(); pingErr != nil {
+		t.Skipf("Skipping database test (MySQL unreachable): %v", pingErr)
+		return
+	}
 	defer db.Close()
 
 	// Create test table

@@ -8,7 +8,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/huandu/go-sqlbuilder"
-	"github.com/xcono/legs/builder"
+	"github.com/xcono/sqlrest/builder"
 )
 
 // TestPostgRESTURLParsing tests URL parameter parsing
@@ -280,11 +280,11 @@ func TestPostgRESTIntegration(t *testing.T) {
 		t.Skipf("Skipping database test: %v", err)
 		return
 	}
-    // Ensure the database is reachable; skip if not
-    if pingErr := db.Ping(); pingErr != nil {
-        t.Skipf("Skipping database test (MySQL unreachable): %v", pingErr)
-        return
-    }
+	// Ensure the database is reachable; skip if not
+	if pingErr := db.Ping(); pingErr != nil {
+		t.Skipf("Skipping database test (MySQL unreachable): %v", pingErr)
+		return
+	}
 	defer db.Close()
 
 	// Create test table
