@@ -50,3 +50,18 @@ func WriteDatabaseError(w http.ResponseWriter, operation string, err error) {
 func WriteValidationError(w http.ResponseWriter, field, reason string) {
 	WriteBadRequest(w, "Validation failed", fmt.Sprintf("Field '%s': %s", field, reason))
 }
+
+// WriteParseError writes a parsing error with PGRST100 code (PostgREST compatible)
+func WriteParseError(w http.ResponseWriter, message, details string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
+
+	errorResponse := Response{
+		Message: message,
+		Code:    "PGRST100",
+		Details: details,
+		Hint:    nil, // Explicitly set to nil to match PostgREST format
+	}
+
+	json.NewEncoder(w).Encode(errorResponse)
+}

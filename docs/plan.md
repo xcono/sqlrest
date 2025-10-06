@@ -17,7 +17,6 @@ This document outlines the implementation plan for integrating the PostgREST que
    - ✅ **NEW: Nested embedding with recursive JOIN generation**
    - ✅ **NEW: Automatic table aliasing (t1, t2, t3...)**
    - ✅ **NEW: PostgREST embed syntax parsing (`posts!inner(id,title)`)**
-   - ✅ **NEW: Legacy embed parameter backward compatibility**
    - ✅ Comprehensive test coverage with real database integration
 
 2. **JOIN Operations Implementation** (`builder/join.go`)
@@ -133,7 +132,6 @@ Based on the Supabase documentation analysis, the server must support:
   - [x] Unit tests for all JOIN data structures
   - [x] Integration tests for JOIN SQL generation
   - [x] End-to-end tests for PostgREST JOIN syntax
-  - [x] Legacy embed parameter compatibility tests
 
 ### Phase 2: CRUD Operations (Priority: High) ✅ COMPLETED
 

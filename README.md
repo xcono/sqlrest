@@ -47,7 +47,6 @@ Based on my comprehensive analysis of the codebase and PostgREST documentation, 
 | | Range Queries (`range`) | ❌ **Not Implemented** | HTTP Range headers not supported |
 | | Single Row (`single`, `maybeSingle`) | ✅ **Complete** | Single row retrieval |
 | **🔗 Resource Embedding** | | | |
-| | Basic Embedding (`embed`) | ✅ **Complete** | Legacy embed parameter support |
 | | PostgREST Embed Syntax | ✅ **Complete** | `posts!inner(id,title)` syntax |
 | | JOIN Operations | ✅ **Complete** | LEFT, INNER, RIGHT, FULL JOINs |
 | | Nested Embedding | ✅ **Complete** | Recursive JOIN generation |

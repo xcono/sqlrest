@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/xcono/sqlrest/web/query"
 	"github.com/xcono/sqlrest/web/response"
@@ -25,7 +26,12 @@ func (h *SelectHandler) Handle(w http.ResponseWriter, r *http.Request, tableName
 	// Execute SELECT query
 	results, err := h.executor.ExecuteSelect(tableName, queryParams)
 	if err != nil {
-		response.WriteDatabaseError(w, "query", err)
+		// Check if this is a validation error (400) vs database error (500)
+		if strings.Contains(err.Error(), "failed to parse filter") {
+			response.WriteParseError(w, err.Error(), "")
+		} else {
+			response.WriteDatabaseError(w, "query", err)
+		}
 		return
 	}
 

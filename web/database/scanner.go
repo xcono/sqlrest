@@ -39,6 +39,13 @@ func NewScanner() *Scanner {
 
 // ScanRows scans SQL rows into a slice of maps
 func (s *Scanner) ScanRows(rows *sql.Rows) ([]map[string]interface{}, error) {
+	return s.ScanRowsWithEmbeds(rows, "", []string{})
+}
+
+// ScanRowsWithEmbeds scans SQL rows with PostgREST-style nested embedding
+// parentTable: the main table name (e.g., "album" for /album?select=*,artist(name))
+// embedTables: list of embedded table names (e.g., ["artist"])
+func (s *Scanner) ScanRowsWithEmbeds(rows *sql.Rows, parentTable string, embedTables []string) ([]map[string]interface{}, error) {
 	// Get column names
 	columns, err := rows.Columns()
 	if err != nil {
@@ -46,10 +53,10 @@ func (s *Scanner) ScanRows(rows *sql.Rows) ([]map[string]interface{}, error) {
 		return nil, err
 	}
 
-	// Detect whether we have nested aliases (e.g., users__id or users__posts__id)
+	// Detect whether we have nested aliases (e.g., album__id, artist__name)
 	hasNested := false
 	for _, c := range columns {
-		if strings.Contains(c, "__") || strings.Contains(c, ".") {
+		if strings.Contains(c, "__") {
 			hasNested = true
 			break
 		}
@@ -75,38 +82,71 @@ func (s *Scanner) ScanRows(rows *sql.Rows) ([]map[string]interface{}, error) {
 		// Create map for this row
 		row := make(map[string]interface{})
 
-		if hasNested {
-			// Build nested structure based on alias paths
+		if hasNested && parentTable != "" {
+			// Build PostgREST-style nested structure
 			for i, col := range columns {
 				rawVal := values[i]
 				val := convertValue(rawVal)
 
-				// Support both alias styles: users__posts__id or users.id
-				var path []string
+				// Handle aliased columns with __ delimiter
 				if strings.Contains(col, "__") {
-					path = strings.Split(col, "__")
-				} else if strings.Contains(col, ".") {
-					path = strings.Split(col, ".")
+					parts := strings.Split(col, "__")
+					if len(parts) >= 2 {
+						if parts[0] == parentTable {
+							// Parent table columns go at root level
+							row[parts[1]] = val
+						} else {
+							// Handle nested structure: table1__table2__column
+							current := row
+							for i := 0; i < len(parts)-1; i++ {
+								tableName := parts[i]
+								if _, exists := current[tableName]; !exists {
+									current[tableName] = make(map[string]interface{})
+								}
+								if nestedObj, ok := current[tableName].(map[string]interface{}); ok {
+									current = nestedObj
+								}
+							}
+							// Set the final column value
+							columnName := parts[len(parts)-1]
+							current[columnName] = val
+						}
+					}
 				} else {
-					// Fallback to flat if we cannot detect path
-					row[col] = val
-					continue
-				}
+					// Handle unaliased columns (fallback for SELECT *)
+					// For SELECT * with embeds, we need to determine which table each column belongs to
+					// This is complex without schema information, so we'll use a heuristic approach
 
-				// Normalize empty segments
-				normalized := make([]string, 0, len(path))
-				for _, seg := range path {
-					seg = strings.TrimSpace(seg)
-					if seg != "" {
-						normalized = append(normalized, seg)
+					// Common patterns for determining table ownership:
+					// - Columns with table_id suffix likely belong to that table
+					// - Primary key columns (id, table_id) belong to their respective tables
+
+					isEmbedColumn := false
+					for _, embedTable := range embedTables {
+						// Check if column name suggests it belongs to an embed table
+						if strings.HasSuffix(col, "_id") && strings.Contains(col, embedTable) {
+							// This looks like a foreign key to the embed table
+							if _, exists := row[embedTable]; !exists {
+								row[embedTable] = make(map[string]interface{})
+							}
+							if nestedObj, ok := row[embedTable].(map[string]interface{}); ok {
+								nestedObj[col] = val
+							}
+							isEmbedColumn = true
+							break
+						} else if col == embedTable+"_id" {
+							// This is the foreign key column, belongs to parent table
+							row[col] = val
+							isEmbedColumn = true
+							break
+						}
+					}
+
+					if !isEmbedColumn {
+						// Default to parent table column
+						row[col] = val
 					}
 				}
-
-				if len(normalized) == 0 {
-					continue
-				}
-
-				setNested(row, normalized, val)
 			}
 		} else {
 			// Flat mapping (backward compatibility)
@@ -114,6 +154,11 @@ func (s *Scanner) ScanRows(rows *sql.Rows) ([]map[string]interface{}, error) {
 				rawVal := values[i]
 				row[col] = convertValue(rawVal)
 			}
+		}
+
+		// Post-process: Convert all-NULL embedded objects to null (PostgREST behavior)
+		if hasNested && parentTable != "" {
+			row = s.convertNullEmbedsToNull(row, embedTables)
 		}
 
 		results = append(results, row)
@@ -170,4 +215,29 @@ func (s *Scanner) GetRowCount(rows *sql.Rows) (int, error) {
 		count++
 	}
 	return count, rows.Err()
+}
+
+// convertNullEmbedsToNull converts embedded objects that are all-NULL to null
+// This matches PostgREST's behavior for LEFT JOINs where no matching rows exist
+func (s *Scanner) convertNullEmbedsToNull(row map[string]interface{}, embedTables []string) map[string]interface{} {
+	for _, embedTable := range embedTables {
+		if embedObj, exists := row[embedTable]; exists {
+			if embedMap, ok := embedObj.(map[string]interface{}); ok {
+				// Check if all values in the embed object are nil
+				allNull := true
+				for _, val := range embedMap {
+					if val != nil {
+						allNull = false
+						break
+					}
+				}
+
+				// If all values are null, convert the entire embed to null
+				if allNull {
+					row[embedTable] = nil
+				}
+			}
+		}
+	}
+	return row
 }

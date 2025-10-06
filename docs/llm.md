@@ -100,7 +100,6 @@ const (
 
 ### Supported URL Parameters
 - `select`: Column selection with embed syntax (`posts!inner(id,title)`)
-- `embed`: Legacy embed parameter (backward compatibility)
 - `order`: Ordering with direction (`name.desc`)
 - `limit`/`offset`: Pagination
 - `single`/`maybeSingle`: Single row queries

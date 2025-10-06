@@ -83,17 +83,32 @@ func NewForeignKeyResolver(db *sql.DB) *ForeignKeyResolver {
 
 // DetectRelationship attempts to detect the relationship between two tables
 func (fkr *ForeignKeyResolver) DetectRelationship(parentTable, childTable string) (string, error) {
-	// Try common naming conventions
+	// Try common naming conventions for foreign keys
+	// The foreign key should be in the child table pointing to the parent table
 	possibleKeys := []string{
-		parentTable + "_id",
-		parentTable + "Id",
-		"id",
+		parentTable + "_id", // e.g., artist_id
+		parentTable + "Id",  // e.g., artistId
+		"id",                // fallback
 	}
 
 	// Check if any of these columns exist in the child table
 	for _, key := range possibleKeys {
 		if fkr.columnExists(childTable, key) {
+			// Correct relationship: parent.id = child.parent_id
 			return parentTable + "." + "id" + " = " + childTable + "." + key, nil
+		}
+	}
+
+	// Try reverse relationship (parent table has foreign key to child)
+	reverseKeys := []string{
+		childTable + "_id", // e.g., album_id
+		childTable + "Id",  // e.g., albumId
+	}
+
+	for _, key := range reverseKeys {
+		if fkr.columnExists(parentTable, key) {
+			// Reverse relationship: parent.child_id = child.id
+			return parentTable + "." + key + " = " + childTable + "." + "id", nil
 		}
 	}
 

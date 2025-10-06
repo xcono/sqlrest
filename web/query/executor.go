@@ -48,8 +48,18 @@ func (e *Executor) ExecuteSelect(tableName string, params url.Values) ([]map[str
 	}
 	defer rows.Close()
 
-	// Scan results
-	return e.scanner.ScanRows(rows)
+	// Extract embed table names for scanner context
+	var embedTables []string
+	for _, embed := range query.Embeds {
+		embedTables = append(embedTables, embed.Table)
+		// Also collect nested embed tables
+		for _, nested := range embed.NestedEmbeds {
+			embedTables = append(embedTables, nested.Table)
+		}
+	}
+
+	// Scan results with PostgREST-style nesting
+	return e.scanner.ScanRowsWithEmbeds(rows, tableName, embedTables)
 }
 
 // HandleSingleRow handles single row requests

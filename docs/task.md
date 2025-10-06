@@ -26,7 +26,6 @@ This document consolidates the complete implementation of PostgREST-compatible J
 - **Full Syntax Support**: `posts!inner(id,title,comments(text))`
 - **JOIN Type Detection**: `!inner`, `!left`, `!right`, `!full` modifiers
 - **Nested Embedding**: `comments(text)` within `posts!inner(...)`
-- **Legacy Support**: Backward compatibility with `embed` parameter
 - **URL Parameter Parsing**: Complete PostgREST URL → SQL conversion
 
 ### **3. Enhanced SQL Generation** ✅

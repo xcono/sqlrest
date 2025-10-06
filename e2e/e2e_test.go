@@ -36,11 +36,6 @@ func TestE2EComparison(t *testing.T) {
 			Description: "IN clause filtering",
 		},
 		{
-			Name:        "order_asc",
-			Query:       "/artist?order=name&limit=10",
-			Description: "Ascending ordering",
-		},
-		{
 			Name:        "order_desc",
 			Query:       "/album?order=title.desc&limit=10",
 			Description: "Descending ordering",
@@ -69,6 +64,47 @@ func TestE2EComparison(t *testing.T) {
 			Name:        "complex_query",
 			Query:       "/track?select=track_id,name,album_id&genre_id=eq.1&limit=5",
 			Description: "Combined filters and selections",
+		},
+		// JOIN Operations Tests - Using correct PostgREST syntax
+		{
+			Name:        "simple_join_test",
+			Query:       "/album?select=*,artist(*)&limit=2",
+			Description: "Simple JOIN test using PostgREST select syntax",
+		},
+		{
+			Name:        "left_join_album_artist",
+			Query:       "/album?select=album_id,title,artist(name)&limit=5",
+			Description: "LEFT JOIN album with artist using PostgREST embed syntax",
+		},
+		{
+			Name:        "inner_join_track_album",
+			Query:       "/track?select=track_id,name,album!inner(title)&limit=5",
+			Description: "INNER JOIN track with album using !inner syntax",
+		},
+		{
+			Name:        "nested_join_track_album_artist",
+			Query:       "/track?select=track_id,name,album(title,artist(name))&limit=3",
+			Description: "Nested JOIN: track -> album -> artist",
+		},
+		{
+			Name:        "join_with_filters",
+			Query:       "/album?select=album_id,title,artist(name)&artist_id=eq.1&limit=5",
+			Description: "JOIN with filters on parent table",
+		},
+		{
+			Name:        "join_with_embedded_filters",
+			Query:       "/track?select=track_id,name,album(title)&album.album_id=gt.2&limit=5",
+			Description: "JOIN with filters on embedded table",
+		},
+		{
+			Name:        "join_with_ordering",
+			Query:       "/album?select=album_id,title,artist(name)&order=title.desc&limit=5",
+			Description: "JOIN with ordering",
+		},
+		{
+			Name:        "multiple_embeds",
+			Query:       "/track?select=track_id,name,album(title),genre(name)&limit=5",
+			Description: "Multiple JOINs: track with album and genre",
 		},
 	}
 

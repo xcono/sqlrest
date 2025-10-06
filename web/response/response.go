@@ -10,8 +10,10 @@ import (
 type Response struct {
 	Data    interface{} `json:"data,omitempty"`
 	Error   string      `json:"error,omitempty"`
+	Message string      `json:"message,omitempty"`
 	Code    string      `json:"code,omitempty"`
 	Details string      `json:"details,omitempty"`
+	Hint    interface{} `json:"hint,omitempty"`
 	Count   int         `json:"count,omitempty"`
 }
 
