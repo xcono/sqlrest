@@ -34,6 +34,11 @@ func (e *Executor) ExecuteSelect(tableName string, params url.Values) ([]map[str
 		return nil, err
 	}
 
+	// Handle single parameter logic
+	if query.Single {
+		return e.executeSingleQuery(query, tableName)
+	}
+
 	// Build SQL query
 	sb, err := e.builder.BuildSQL(query)
 	if err != nil {
@@ -60,6 +65,55 @@ func (e *Executor) ExecuteSelect(tableName string, params url.Values) ([]map[str
 
 	// Scan results with PostgREST-style nesting
 	return e.scanner.ScanRowsWithEmbeds(rows, tableName, embedTables)
+}
+
+// executeSingleQuery handles single parameter logic according to PostgREST behavior
+func (e *Executor) executeSingleQuery(query *builder.PostgRESTQuery, tableName string) ([]map[string]interface{}, error) {
+	// First, execute the query WITHOUT LIMIT 1 to check row count
+	// Temporarily set Single to false to avoid LIMIT 1
+	originalSingle := query.Single
+	query.Single = false
+
+	sb, err := e.builder.BuildSQL(query)
+	if err != nil {
+		// Restore original state
+		query.Single = originalSingle
+		return nil, err
+	}
+
+	// Execute query without LIMIT 1
+	sql, args := sb.BuildWithFlavor(sqlbuilder.MySQL)
+	rows, err := e.db.Query(sql, args...)
+	if err != nil {
+		// Restore original state
+		query.Single = originalSingle
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Extract embed table names for scanner context
+	var embedTables []string
+	for _, embed := range query.Embeds {
+		embedTables = append(embedTables, embed.Table)
+		// Also collect nested embed tables
+		for _, nested := range embed.NestedEmbeds {
+			embedTables = append(embedTables, nested.Table)
+		}
+	}
+
+	// Scan results with PostgREST-style nesting
+	results, err := e.scanner.ScanRowsWithEmbeds(rows, tableName, embedTables)
+	if err != nil {
+		// Restore original state
+		query.Single = originalSingle
+		return nil, err
+	}
+
+	// Restore original state
+	query.Single = originalSingle
+
+	// Return results as-is - HandleSingleRow will handle the single parameter logic
+	return results, nil
 }
 
 // HandleSingleRow handles single row requests

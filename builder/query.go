@@ -54,6 +54,7 @@ type PostgRESTQuery struct {
 	Order   []string          `json:"order,omitempty"`
 	Limit   int               `json:"limit,omitempty"`
 	Offset  int               `json:"offset,omitempty"`
+	Single  bool              `json:"single,omitempty"`  // PostgREST single row parameter
 	Embeds  []EmbedDefinition `json:"embeds,omitempty"`  // PostgREST resource embedding with JOIN support
 	Headers map[string]string `json:"headers,omitempty"` // HTTP headers
 }
@@ -135,6 +136,10 @@ func (b *PostgRESTBuilder) ParseURLParams(table string, params url.Values) (*Pos
 		}
 	}
 
+	// Parse single parameter
+	if singleParam := params.Get("single"); singleParam != "" {
+		query.Single = true
+	}
 
 	// Process embedded table filters after parsing embeds
 	// Move filters like "album.album_id=gt.2" to the corresponding embed definition
@@ -174,7 +179,6 @@ func (b *PostgRESTBuilder) ParseURLParams(table string, params url.Values) (*Pos
 		query.Filters = remainingFilters
 	}
 
-
 	return query, nil
 }
 
@@ -187,6 +191,15 @@ func (b *PostgRESTBuilder) parseFilterParam(key, value string) (interface{}, err
 
 	// Handle column filters
 	if strings.Contains(value, ".") {
+		// Handle special case: not.is.null
+		if value == "not.is.null" {
+			return Filter{
+				Column:   key,
+				Operator: OpIs,
+				Value:    "not null",
+			}, nil
+		}
+
 		// Check if it's an operator (eq.value, gt.18, etc.)
 		parts := strings.SplitN(value, ".", 2)
 		if len(parts) == 2 {
@@ -323,6 +336,11 @@ func (b *PostgRESTBuilder) parseFilterValue(operator, value string) (interface{}
 			result = append(result, b.parseSimpleValue(strings.TrimSpace(part)))
 		}
 		return result, nil
+	case OpLike, OpILike:
+		// Convert PostgREST wildcards (*) to SQL wildcards (%)
+		// PostgREST uses * as wildcard, SQL uses %
+		value = strings.ReplaceAll(value, "*", "%")
+		return value, nil
 	case OpIs:
 		// Parse null/not null
 		if value == "null" {
@@ -416,6 +434,9 @@ func (b *PostgRESTBuilder) BuildSQL(q *PostgRESTQuery) (*sqlbuilder.SelectBuilde
 	// Apply limit and offset
 	if q.Limit > 0 {
 		sb.Limit(q.Limit)
+	} else if q.Single {
+		// PostgREST single parameter adds LIMIT 1
+		sb.Limit(1)
 	}
 	if q.Offset > 0 {
 		sb.Offset(q.Offset)
