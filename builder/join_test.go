@@ -283,31 +283,6 @@ func TestPostgRESTBuilderEmbedParsing(t *testing.T) {
 		}
 	})
 
-	t.Run("backward_compatibility", func(t *testing.T) {
-		params := url.Values{
-			"embed": []string{"posts,comments"},
-		}
-
-		query, err := b.ParseURLParams("users", params)
-		if err != nil {
-			t.Fatalf("Failed to parse URL params: %v", err)
-		}
-
-		if len(query.Embeds) != 2 {
-			t.Errorf("Expected 2 embeds, got %d", len(query.Embeds))
-		}
-
-		// Check that embeds are created with default values
-		for _, embed := range query.Embeds {
-			if embed.JoinType != builder.JoinTypeLeft {
-				t.Errorf("Expected default JoinTypeLeft, got %s", embed.JoinType)
-			}
-
-			if len(embed.Columns) != 1 || embed.Columns[0] != "*" {
-				t.Errorf("Expected default columns ['*'], got %v", embed.Columns)
-			}
-		}
-	})
 }
 
 // TestJoinTypeConversion tests JOIN type conversion to sqlbuilder

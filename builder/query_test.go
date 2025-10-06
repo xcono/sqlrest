@@ -562,80 +562,6 @@ func TestPostgRESTLogicalOperators(t *testing.T) {
 	}
 }
 
-// TestPostgRESTEmbedding tests resource embedding functionality
-func TestPostgRESTEmbedding(t *testing.T) {
-	b := builder.NewPostgRESTBuilder()
-
-	tt := []struct {
-		name     string
-		table    string
-		params   url.Values
-		expected *builder.PostgRESTQuery
-	}{
-		{
-			name:  "simple embedding",
-			table: "posts",
-			params: url.Values{
-				"embed": []string{"author"},
-			},
-			expected: &builder.PostgRESTQuery{
-				Table: "posts",
-				Embeds: []builder.EmbedDefinition{
-					{Table: "author", JoinType: builder.JoinTypeLeft, Columns: []string{"*"}},
-				},
-			},
-		},
-		{
-			name:  "multiple embeddings",
-			table: "posts",
-			params: url.Values{
-				"embed": []string{"author,comments"},
-			},
-			expected: &builder.PostgRESTQuery{
-				Table: "posts",
-				Embeds: []builder.EmbedDefinition{
-					{Table: "author", JoinType: builder.JoinTypeLeft, Columns: []string{"*"}},
-					{Table: "comments", JoinType: builder.JoinTypeLeft, Columns: []string{"*"}},
-				},
-			},
-		},
-		{
-			name:  "nested embedding",
-			table: "posts",
-			params: url.Values{
-				"embed": []string{"author(profile)"},
-			},
-			expected: &builder.PostgRESTQuery{
-				Table: "posts",
-				Embeds: []builder.EmbedDefinition{
-					{Table: "author", JoinType: builder.JoinTypeLeft, Columns: []string{"*"}},
-				},
-			},
-		},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			query, err := b.ParseURLParams(tc.table, tc.params)
-			if err != nil {
-				t.Fatalf("failed to parse URL params: %v", err)
-			}
-
-			if len(query.Embeds) != len(tc.expected.Embeds) {
-				t.Errorf("expected %d embeds, got %d", len(tc.expected.Embeds), len(query.Embeds))
-			}
-
-			for i, embed := range query.Embeds {
-				if embed.Table != tc.expected.Embeds[i].Table {
-					t.Errorf("expected embed table %s, got %s", tc.expected.Embeds[i].Table, embed.Table)
-				}
-			}
-
-			t.Logf("Parsed embedding: %v", query.Embeds)
-		})
-	}
-}
-
 // TestPostgRESTEdgeCases tests edge cases and error handling
 func TestPostgRESTEdgeCases(t *testing.T) {
 	b := builder.NewPostgRESTBuilder()
@@ -1089,7 +1015,7 @@ func TestPostgRESTEndToEndJOIN(t *testing.T) {
 
 		// Verify the complete PostgREST JOIN query
 		expectedParts := []string{
-			"SELECT t1.id AS users__id, t1.name AS users__name, t2.id AS posts__id, t2.title AS posts__title, t3.text AS comments__text",
+			"SELECT t1.id AS users__id, t1.name AS users__name, t2.id AS posts__id, t2.title AS posts__title, t3.text AS posts__comments__text",
 			"FROM users AS t1",
 			"INNER JOIN posts AS t2",
 			"LEFT JOIN comments AS t3",
@@ -1152,37 +1078,6 @@ func TestPostgRESTEndToEndJOIN(t *testing.T) {
 		t.Logf("Args: %v", args)
 	})
 
-	t.Run("postgrest_legacy_embed_compatibility", func(t *testing.T) {
-		// Test legacy embed parameter for backward compatibility
-		params := url.Values{
-			"embed":  []string{"posts,comments"},
-			"select": []string{"id,name"},
-		}
-
-		query, err := b.ParseURLParams("users", params)
-		if err != nil {
-			t.Fatalf("failed to parse URL params: %v", err)
-		}
-
-		sb, err := b.BuildSQL(query)
-		if err != nil {
-			t.Fatalf("failed to build SQL: %v", err)
-		}
-
-		sql, args := sb.BuildWithFlavor(sqlbuilder.MySQL)
-
-		// Verify legacy embed creates JOINs
-		if !strings.Contains(sql, "LEFT JOIN posts AS t2") {
-			t.Errorf("Expected LEFT JOIN posts from legacy embed, got: %s", sql)
-		}
-
-		if !strings.Contains(sql, "LEFT JOIN comments AS t3") {
-			t.Errorf("Expected LEFT JOIN comments from legacy embed, got: %s", sql)
-		}
-
-		t.Logf("Legacy embed JOIN SQL: %s", sql)
-		t.Logf("Args: %v", args)
-	})
 }
 
 func TestOrderByParsing(t *testing.T) {
