@@ -1,18 +1,58 @@
 package e2e_test
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 
 	"github.com/xcono/sqlrest/e2e/compare"
-	"github.com/xcono/sqlrest/e2e/dbseed"
+	"github.com/xcono/sqlrest/e2e/containers"
 	"github.com/xcono/sqlrest/web/database"
 	"github.com/xcono/sqlrest/web/handlers"
 )
+
+// Package-level variables for containers
+var testContainers *containers.TestContainers
+
+// TestMain manages container lifecycle for all tests
+func TestMain(m *testing.M) {
+	// Commented out full container setup to allow individual container tests
+	// Uncomment when ready to run full e2e tests with all containers
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// Setup all containers
+	var err error
+	testContainers, err = containers.SetupAllContainers(ctx)
+	if err != nil {
+		log.Fatalf("Failed to setup containers: %v", err)
+	}
+
+	// Ensure cleanup on exit
+	defer func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cleanupCancel()
+
+		if err := testContainers.Cleanup(cleanupCtx); err != nil {
+			log.Printf("Warning: Failed to cleanup containers: %v", err)
+		}
+	}()
+
+	// Run tests
+	code := m.Run()
+	os.Exit(code)
+}
 
 // TestConfig holds configuration for e2e tests
 type TestConfig struct {
@@ -21,12 +61,16 @@ type TestConfig struct {
 	PostgresDSN  string
 }
 
-// DefaultTestConfig returns the default test configuration
+// DefaultTestConfig returns the default test configuration using containers
 func DefaultTestConfig() *TestConfig {
+	if testContainers == nil {
+		panic("TestMain must be called before DefaultTestConfig")
+	}
+
 	return &TestConfig{
-		PostgRESTURL: "http://localhost:3001",
-		MySQLDSN:     "testuser:testpass@tcp(127.0.0.1:3307)/chinook_auto_increment",
-		PostgresDSN:  "postgres://postgres:postgres@localhost:5433/chinook_auto_increment?sslmode=disable",
+		PostgRESTURL: testContainers.PostgRESTURL,
+		MySQLDSN:     testContainers.MySQLDSN,
+		PostgresDSN:  testContainers.PostgresDSN,
 	}
 }
 
@@ -43,9 +87,42 @@ func NewTestSuite(t *testing.T, config *TestConfig) *TestSuite {
 		config = DefaultTestConfig()
 	}
 
-	// Seed databases
-	mysqlDB := dbseed.SeedMySQL(t, config.MySQLDSN)
-	dbseed.SeedPostgres(t, config.PostgresDSN)
+	// Connect to MySQL database (already seeded by init scripts)
+	t.Logf("Connecting to MySQL with DSN: %s", config.MySQLDSN)
+	mysqlDB, err := sql.Open("mysql", config.MySQLDSN)
+	if err != nil {
+		t.Fatalf("Failed to connect to MySQL: %v", err)
+	}
+
+	// Configure connection pool
+	mysqlDB.SetMaxOpenConns(10)
+	mysqlDB.SetMaxIdleConns(5)
+
+	// Test the MySQL connection with retry
+	var pingErr error
+	for i := 0; i < 5; i++ {
+		pingErr = mysqlDB.Ping()
+		if pingErr == nil {
+			break
+		}
+		t.Logf("MySQL ping attempt %d failed: %v", i+1, pingErr)
+		time.Sleep(time.Second)
+	}
+	if pingErr != nil {
+		t.Fatalf("Failed to ping MySQL database after 5 attempts: %v", pingErr)
+	}
+
+	// Verify PostgreSQL connection (already seeded by init scripts)
+	postgresDB, err := sql.Open("postgres", config.PostgresDSN)
+	if err != nil {
+		t.Fatalf("Failed to connect to PostgreSQL: %v", err)
+	}
+
+	// Test the PostgreSQL connection
+	if err := postgresDB.Ping(); err != nil {
+		t.Fatalf("Failed to ping PostgreSQL database: %v", err)
+	}
+	postgresDB.Close()
 
 	// Start SQL-REST server
 	sqlRestServer := startSQLRestServer(t, mysqlDB)

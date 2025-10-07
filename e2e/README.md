@@ -35,10 +35,15 @@ go test -tags e2e -parallel 4 ./e2e
 ## Test Environment
 
 ### Prerequisites
-- Docker and Docker Compose
-- PostgREST running on `localhost:3001`
-- MySQL running on `localhost:3307`
-- PostgreSQL running on `localhost:5433`
+- Docker daemon running (for Testcontainers)
+- No manual setup required - containers are managed automatically
+
+### Container Infrastructure
+The tests use Testcontainers to automatically manage:
+- **MySQL 8.4**: Database for sqlrest testing
+- **PostgreSQL 17.5**: Database for PostgREST testing  
+- **PostgREST v12.2.3**: REST API server for comparison testing
+- **Docker Network**: Enables communication between PostgreSQL and PostgREST
 
 ### Database Setup
 The tests use a simple dataset with the following tables:
@@ -52,6 +57,7 @@ The tests use a simple dataset with the following tables:
 - **Simple dataset**: 5 artists, 5 albums, 10 tracks, 5 genres
 - **Lowercase naming**: All tables and columns use snake_case
 - **Consistent data**: Same data seeded in both MySQL and PostgreSQL
+- **Automatic seeding**: Migration files are automatically applied during container startup
 
 ## Test Categories
 
@@ -147,9 +153,10 @@ The tests use a simple dataset with the following tables:
 ```yaml
 - name: Run E2E Tests
   run: |
-    docker-compose -f e2e/docker-compose.test.yaml up -d
+    # Ensure Docker daemon is running
+    sudo systemctl start docker
+    # Run tests (containers managed automatically)
     go test -tags e2e ./e2e
-    docker-compose -f e2e/docker-compose.test.yaml down
 ```
 
 ### Test Selection
@@ -168,15 +175,14 @@ go test -tags e2e ./e2e -run TestE2EComparison/select_all_artists
 
 ### Common Issues
 
-1. **Database connection failures**
-   - Check Docker containers are running
-   - Verify connection strings in test files
-   - Check database permissions
+1. **Docker daemon not running**
+   - Ensure Docker daemon is started: `sudo systemctl start docker`
+   - Verify Docker is accessible: `docker ps`
 
-2. **Test data inconsistencies**
-   - Ensure both databases are seeded with same data
-   - Check migration files are up to date
-   - Verify cleanup is working properly
+2. **Container startup failures**
+   - Check Docker has sufficient resources (memory, disk space)
+   - Verify migration files exist and are readable
+   - Check network connectivity for image downloads
 
 3. **Ordering differences**
    - Check if test is in `incompat_test.go`
@@ -207,7 +213,7 @@ go test -tags e2e ./e2e -run TestE2EComparison/select_all_artists
 - [ ] Complex relationship data
 
 ### Infrastructure Improvements
+- [x] Automated test environment setup (Testcontainers)
 - [ ] Test data generation utilities
-- [ ] Automated test environment setup
 - [ ] Test result reporting and visualization
 - [ ] Integration with monitoring tools
