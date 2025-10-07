@@ -43,8 +43,9 @@ legs/
 5. **Filter System**: Complex filtering with logical operators (AND, OR)
 6. **Ordering & Pagination**: ORDER BY, LIMIT, OFFSET support
 7. **Single Row Queries**: single/maybeSingle parameter support
-8. **Error Handling**: Comprehensive error responses
-9. **Test Coverage**: 100% test coverage with unit and integration tests
+8. **PATCH Operations**: Full PostgREST-compatible partial updates with filter-based row selection
+9. **Error Handling**: Comprehensive error responses
+10. **Test Coverage**: 100% test coverage with unit and integration tests
 
 ### 🔄 CURRENT IMPLEMENTATION
 - **JOIN Operations**: Production-ready with automatic foreign key detection
@@ -55,7 +56,8 @@ legs/
 1. **Result Scanning**: Update database scanner for nested JSON objects
 2. **Response Formatting**: Handle nested embed responses
 3. **Schema Introspection**: Real foreign key detection from database schema
-4. **Performance Optimization**: Query optimization and caching
+4. **DELETE Operations**: Implement DELETE functionality
+5. **Performance Optimization**: Query optimization and caching
 
 ## CORE DATA STRUCTURES
 

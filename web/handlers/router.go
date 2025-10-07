@@ -13,7 +13,7 @@ import (
 type Router struct {
 	selectHandler *SelectHandler
 	insertHandler *InsertHandler
-	// updateHandler *UpdateHandler  // TODO: Implement in next phase
+	updateHandler *UpdateHandler
 	// deleteHandler *DeleteHandler  // TODO: Implement in next phase
 }
 
@@ -24,7 +24,7 @@ func NewRouter(db *database.Executor) *Router {
 	return &Router{
 		selectHandler: NewSelectHandler(queryExecutor),
 		insertHandler: NewInsertHandler(db),
-		// updateHandler: NewUpdateHandler(db),  // TODO: Implement in next phase
+		updateHandler: NewUpdateHandler(db),
 		// deleteHandler: NewDeleteHandler(db),  // TODO: Implement in next phase
 	}
 }
@@ -47,8 +47,7 @@ func (r *Router) HandleTable(w http.ResponseWriter, req *http.Request) {
 	case http.MethodPost:
 		r.insertHandler.Handle(w, req, tableName)
 	case http.MethodPatch:
-		// TODO: Implement UPDATE handler
-		response.WriteMethodNotAllowed(w, req.Method)
+		r.updateHandler.Handle(w, req, tableName)
 	case http.MethodDelete:
 		// TODO: Implement DELETE handler
 		response.WriteMethodNotAllowed(w, req.Method)

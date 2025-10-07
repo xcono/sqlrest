@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -154,6 +155,16 @@ func (ts *TestSuite) QuerySQLREST(t *testing.T, query string) compare.Response {
 	return queryAPI(t, ts.sqlRestServer.URL+query)
 }
 
+// QueryPostgRESTPatch queries the PostgREST server with PATCH
+func (ts *TestSuite) QueryPostgRESTPatch(t *testing.T, query string, body string) compare.Response {
+	return patchAPI(t, ts.config.PostgRESTURL+query, body)
+}
+
+// QuerySQLRESTPatch queries the sqlrest server with PATCH
+func (ts *TestSuite) QuerySQLRESTPatch(t *testing.T, query string, body string) compare.Response {
+	return patchAPI(t, ts.sqlRestServer.URL+query, body)
+}
+
 // CompareQueries compares responses from both servers
 func (ts *TestSuite) CompareQueries(t *testing.T, query string) error {
 	pgResp := ts.QueryPostgREST(t, query)
@@ -161,10 +172,19 @@ func (ts *TestSuite) CompareQueries(t *testing.T, query string) error {
 	return compare.CompareResponses(pgResp, srResp)
 }
 
+// ComparePatchQueries compares PATCH responses from both servers
+func (ts *TestSuite) ComparePatchQueries(t *testing.T, query string, body string) error {
+	pgResp := ts.QueryPostgRESTPatch(t, query, body)
+	srResp := ts.QuerySQLRESTPatch(t, query, body)
+	return compare.CompareResponses(pgResp, srResp)
+}
+
 // TestCase represents a single test case
 type TestCase struct {
 	Name        string
 	Query       string
+	Method      string
+	Body        string
 	ExpectError bool
 	Description string
 }
@@ -176,7 +196,12 @@ func (ts *TestSuite) RunTestCase(t *testing.T, tc TestCase) {
 			t.Logf("Description: %s", tc.Description)
 		}
 
-		err := ts.CompareQueries(t, tc.Query)
+		var err error
+		if tc.Method == "PATCH" {
+			err = ts.ComparePatchQueries(t, tc.Query, tc.Body)
+		} else {
+			err = ts.CompareQueries(t, tc.Query)
+		}
 
 		if tc.ExpectError {
 			if err == nil {
@@ -224,6 +249,36 @@ func queryAPI(t *testing.T, url string) compare.Response {
 
 	var data interface{}
 	json.Unmarshal(body, &data)
+
+	return compare.Response{
+		Data:       data,
+		StatusCode: resp.StatusCode,
+		Headers: map[string]string{
+			"Content-Type": resp.Header.Get("Content-Type"),
+		},
+	}
+}
+
+func patchAPI(t *testing.T, url string, body string) compare.Response {
+	req, err := http.NewRequest(http.MethodPatch, url, strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("Failed to create PATCH request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Failed to execute PATCH request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	var data interface{}
+	if len(respBody) > 0 {
+		json.Unmarshal(respBody, &data)
+	}
 
 	return compare.Response{
 		Data:       data,

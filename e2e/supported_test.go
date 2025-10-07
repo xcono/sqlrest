@@ -246,3 +246,90 @@ func TestE2EComparison(t *testing.T) {
 
 	suite.RunTestCases(t, testCases)
 }
+
+func TestE2EPatchOperations(t *testing.T) {
+	suite := NewTestSuite(t, nil)
+	defer suite.Close()
+
+	// Define PATCH test cases
+	testCases := []TestCase{
+		{
+			Name:        "patch_single_column",
+			Query:       "/artist?artist_id=eq.1",
+			Method:      "PATCH",
+			Body:        `{"name": "Updated Artist"}`,
+			Description: "Update single column with equality filter",
+		},
+		{
+			Name:        "patch_multiple_columns",
+			Query:       "/album?album_id=eq.1",
+			Method:      "PATCH",
+			Body:        `{"title": "New Title", "artist_id": 2}`,
+			Description: "Update multiple columns",
+		},
+		{
+			Name:        "patch_with_filter_gt",
+			Query:       "/track?track_id=gt.500&limit=5",
+			Method:      "PATCH",
+			Body:        `{"unit_price": 1.99}`,
+			ExpectError: true,
+			Description: "Update multiple rows with gt filter (PostgREST doesn't allow LIMIT with PATCH)",
+		},
+		{
+			Name:        "patch_with_returning_minimal",
+			Query:       "/artist?artist_id=eq.1&returning=minimal",
+			Method:      "PATCH",
+			Body:        `{"name": "Minimal Return"}`,
+			ExpectError: true,
+			Description: "Update with returning=minimal (PostgREST doesn't support returning parameter for PATCH)",
+		},
+		{
+			Name:        "patch_with_filter_in",
+			Query:       "/genre?genre_id=in.(1,2,3)",
+			Method:      "PATCH",
+			Body:        `{"name": "Updated Genre"}`,
+			Description: "Update with IN filter",
+		},
+		{
+			Name:        "patch_with_like_filter",
+			Query:       "/artist?name=like.A*",
+			Method:      "PATCH",
+			Body:        `{"name": "Updated A Artist"}`,
+			Description: "Update with LIKE filter",
+		},
+		{
+			Name:        "patch_no_filter_error",
+			Query:       "/artist",
+			Method:      "PATCH",
+			Body:        `{"name": "Should Fail"}`,
+			ExpectError: true,
+			Description: "PATCH without filters should fail (safety)",
+		},
+		{
+			Name:        "patch_invalid_json_error",
+			Query:       "/artist?artist_id=eq.1",
+			Method:      "PATCH",
+			Body:        `{"name": "Invalid JSON"`,
+			ExpectError: true,
+			Description: "PATCH with invalid JSON should fail",
+		},
+		{
+			Name:        "patch_array_body_error",
+			Query:       "/artist?artist_id=eq.1",
+			Method:      "PATCH",
+			Body:        `[{"name": "Array Item"}]`,
+			ExpectError: true,
+			Description: "PATCH with array body should fail (safety)",
+		},
+		{
+			Name:        "patch_empty_body_error",
+			Query:       "/artist?artist_id=eq.1",
+			Method:      "PATCH",
+			Body:        `{}`,
+			ExpectError: true,
+			Description: "PATCH with empty body should fail",
+		},
+	}
+
+	suite.RunTestCases(t, testCases)
+}

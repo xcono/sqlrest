@@ -591,6 +591,178 @@ func (b *PostgRESTBuilder) buildLogicalCondition(sb *sqlbuilder.SelectBuilder, f
 	return "", nil
 }
 
+// ApplyFiltersToUpdateBuilder applies filters to an UpdateBuilder for WHERE clause
+func (b *PostgRESTBuilder) ApplyFiltersToUpdateBuilder(ub *sqlbuilder.UpdateBuilder, filters []interface{}) error {
+	if len(filters) == 0 {
+		return nil
+	}
+
+	// Sort filters by column name for consistent ordering (same as SELECT)
+	sort.Slice(filters, func(i, j int) bool {
+		filterI, okI := filters[i].(Filter)
+		filterJ, okJ := filters[j].(Filter)
+		if okI && okJ {
+			return filterI.Column < filterJ.Column
+		}
+		// For non-Filter types (like LogicalFilter), use string representation
+		return fmt.Sprintf("%v", filters[i]) < fmt.Sprintf("%v", filters[j])
+	})
+
+	for _, filter := range filters {
+		if err := b.applyUpdateFilter(ub, filter); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// applyUpdateFilter applies a single filter to the UpdateBuilder
+func (b *PostgRESTBuilder) applyUpdateFilter(ub *sqlbuilder.UpdateBuilder, filter interface{}) error {
+	switch f := filter.(type) {
+	case Filter:
+		return b.applySimpleUpdateFilter(ub, f)
+	case *LogicalFilter:
+		return b.applyLogicalUpdateFilter(ub, f)
+	default:
+		return fmt.Errorf("unknown filter type: %T", filter)
+	}
+}
+
+// applySimpleUpdateFilter applies a simple filter to UpdateBuilder
+func (b *PostgRESTBuilder) applySimpleUpdateFilter(ub *sqlbuilder.UpdateBuilder, filter Filter) error {
+	switch filter.Operator {
+	case OpEQ:
+		ub.Where(ub.EQ(filter.Column, filter.Value))
+	case OpNEQ:
+		ub.Where(ub.NE(filter.Column, filter.Value))
+	case OpGT:
+		ub.Where(ub.GT(filter.Column, filter.Value))
+	case OpGTE:
+		ub.Where(ub.GE(filter.Column, filter.Value))
+	case OpLT:
+		ub.Where(ub.LT(filter.Column, filter.Value))
+	case OpLTE:
+		ub.Where(ub.LE(filter.Column, filter.Value))
+	case OpLike:
+		ub.Where(ub.Like(filter.Column, filter.Value))
+	case OpILike:
+		ub.Where(ub.ILike(filter.Column, filter.Value))
+	case OpIn:
+		if values, ok := filter.Value.([]interface{}); ok {
+			ub.Where(ub.In(filter.Column, values...))
+		}
+	case OpIs:
+		if filter.Value == nil {
+			ub.Where(ub.IsNull(filter.Column))
+		} else if filter.Value == "not null" {
+			ub.Where(ub.IsNotNull(filter.Column))
+		}
+	default:
+		return fmt.Errorf("unknown operator: %s", filter.Operator)
+	}
+	return nil
+}
+
+// applyLogicalUpdateFilter applies a logical filter to UpdateBuilder
+func (b *PostgRESTBuilder) applyLogicalUpdateFilter(ub *sqlbuilder.UpdateBuilder, filter *LogicalFilter) error {
+	if len(filter.Filters) == 0 {
+		return nil
+	}
+
+	var conditions []string
+	for _, subFilter := range filter.Filters {
+		condition, err := b.buildUpdateFilterCondition(ub, subFilter)
+		if err != nil {
+			return err
+		}
+		conditions = append(conditions, condition)
+	}
+
+	if len(conditions) > 0 {
+		op := " AND "
+		if filter.Operator == LogOr {
+			op = " OR "
+		}
+		ub.Where("(" + strings.Join(conditions, op) + ")")
+	}
+
+	return nil
+}
+
+// buildUpdateFilterCondition builds a single filter condition for UpdateBuilder
+func (b *PostgRESTBuilder) buildUpdateFilterCondition(ub *sqlbuilder.UpdateBuilder, filter interface{}) (string, error) {
+	switch f := filter.(type) {
+	case Filter:
+		return b.buildSimpleUpdateCondition(ub, f)
+	case *LogicalFilter:
+		return b.buildLogicalUpdateCondition(ub, f)
+	default:
+		return "", fmt.Errorf("unknown filter type: %T", filter)
+	}
+}
+
+// buildSimpleUpdateCondition builds a simple condition string for UpdateBuilder
+func (b *PostgRESTBuilder) buildSimpleUpdateCondition(ub *sqlbuilder.UpdateBuilder, filter Filter) (string, error) {
+	switch filter.Operator {
+	case OpEQ:
+		return ub.EQ(filter.Column, filter.Value), nil
+	case OpNEQ:
+		return ub.NE(filter.Column, filter.Value), nil
+	case OpGT:
+		return ub.GT(filter.Column, filter.Value), nil
+	case OpGTE:
+		return ub.GE(filter.Column, filter.Value), nil
+	case OpLT:
+		return ub.LT(filter.Column, filter.Value), nil
+	case OpLTE:
+		return ub.LE(filter.Column, filter.Value), nil
+	case OpLike:
+		return ub.Like(filter.Column, filter.Value), nil
+	case OpILike:
+		return ub.ILike(filter.Column, filter.Value), nil
+	case OpIn:
+		if values, ok := filter.Value.([]interface{}); ok {
+			return ub.In(filter.Column, values...), nil
+		}
+	case OpIs:
+		if filter.Value == nil {
+			return ub.IsNull(filter.Column), nil
+		} else if filter.Value == "not null" {
+			return ub.IsNotNull(filter.Column), nil
+		}
+	default:
+		return "", fmt.Errorf("unknown operator: %s", filter.Operator)
+	}
+	return "", nil
+}
+
+// buildLogicalUpdateCondition builds a logical condition string for UpdateBuilder
+func (b *PostgRESTBuilder) buildLogicalUpdateCondition(ub *sqlbuilder.UpdateBuilder, filter *LogicalFilter) (string, error) {
+	if len(filter.Filters) == 0 {
+		return "", nil
+	}
+
+	var conditions []string
+	for _, subFilter := range filter.Filters {
+		condition, err := b.buildUpdateFilterCondition(ub, subFilter)
+		if err != nil {
+			return "", err
+		}
+		conditions = append(conditions, condition)
+	}
+
+	if len(conditions) > 0 {
+		op := " AND "
+		if filter.Operator == LogOr {
+			op = " OR "
+		}
+		return "(" + strings.Join(conditions, op) + ")", nil
+	}
+
+	return "", nil
+}
+
 // ParseSelectWithEmbeds parses select parameter and extracts both columns and embeds
 func (b *PostgRESTBuilder) ParseSelectWithEmbeds(selectParam, parentTable string) ([]string, []EmbedDefinition) {
 	var columns []string

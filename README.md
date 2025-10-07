@@ -9,7 +9,7 @@ A Go implementation of PostgREST-compatible API server using `database/sql` comp
 | **🔍 Core API Operations** | | | | |
 | | GET (SELECT) | ✅ **Complete** | ✅ **E2E Tests** | Full PostgREST query parsing, filtering, ordering, pagination |
 | | POST (INSERT) | ✅ **Complete** | ✅ **Unit Tests** | Single and bulk insert operations with returning support |
-| | PATCH (UPDATE) | ❌ **Not Implemented** | ❌ **No Tests** | TODO: Implement in next phase |
+| | PATCH (UPDATE) | ✅ **Complete** | ✅ **E2E Tests** | Full PostgREST-compatible partial updates with filters and returning parameter |
 | | DELETE | ❌ **Not Implemented** | ❌ **No Tests** | TODO: Implement in next phase |
 | | UPSERT | ❌ **Not Implemented** | ❌ **No Tests** | Not yet planned |
 | **🔧 Query Operations** | | | | |
