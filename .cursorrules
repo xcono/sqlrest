@@ -251,16 +251,12 @@ The project is an implementation of PostgREST server (`mcp://context7#postgrest/
 
 The main goal is compatibility with `mcp://context7#supabase/postgrest-js` library.
 
-We going to implement the features step by step.
+Don't try to achieve full functional coverage of the `PostgREST` - it is impossible due MySQL-PostgreSQL differences. But create compact, fully PostgREST-compatible webserver. The compatibility must be in the way `SQLREST -> POSTGREST`, but back compatibility doesn't required. In other words, it is possible to migrate from SQLREST to PostgREST, but migration from postgrest to sqlrest doesn't required.
 
-[-] Yaml config file with schemas.
-[-] Print config to stdout in json format.
-[] Config: user can define named service configuration.
-[] Config: user can define named templates for each service.
-[] Config: implement merging default template with service template with `mcp://context7#goccy/go-yaml` 
-[] Config: remove `go-zero` dependencies, read config with `goccy/go-yaml`.
+Analyze current state of the project in @README.md the readme file.
 
-[] Support `select` query.
-[] Support `insert` query.
-[] Support `update` query.
-[] Support `delete` query.
+Create perfect plan for implementation `PATCH` functionality: @https://docs.postgrest.org/en/stable/references/api/tables_views.html#update 
+
+- scanner @https://context7.com/postgrest/postgrest 
+- sqlbuilder @https://context7.com/huandu/go-sqlbuilder  
+- testing queries with @supported_test.go .

@@ -11,7 +11,7 @@ A Go implementation of PostgREST-compatible API server using `database/sql` comp
 | | POST (INSERT) | ✅ **Complete** | ✅ **Unit Tests** | Single and bulk insert operations with returning support |
 | | PATCH (UPDATE) | ✅ **Complete** | ✅ **E2E Tests** | Full PostgREST-compatible partial updates with filters and returning parameter |
 | | DELETE | ❌ **Not Implemented** | ❌ **No Tests** | TODO: Implement in next phase |
-| | UPSERT | ❌ **Not Implemented** | ❌ **No Tests** | Not yet planned |
+| | UPSERT (POST) | ✅ **Complete** | ✅ **E2E Tests** | MySQL INSERT ON DUPLICATE KEY UPDATE with automatic conflict detection via Prefer header. Note: `returning=representation` not supported (MySQL incompatibility) |
 | **🔧 Query Operations** | | | | |
 | | Column Selection (`select`) | ✅ **Complete** | ✅ **E2E Tests** | Full support with nested column selection |
 | | Equality Filtering (`eq`) | ✅ **Complete** | ✅ **E2E Tests** | `artist_id=eq.1` |
@@ -91,6 +91,7 @@ A Go implementation of PostgREST-compatible API server using `database/sql` comp
   - Special character handling in sorting (`order_asc_collation`, `special_characters_in_sorting`)
   - Case sensitivity in pattern matching (`pattern_matching_case_sensitivity`, `pattern_matching_with_single_parameter`)
   - Non-deterministic behavior with LIMIT/OFFSET without ORDER BY (`limit_offset_without_order`)
+  - UPSERT `returning=representation` not supported due to MySQL compatibility limitations
 
 ## 🏆 **Architecture Assessment**
 

@@ -165,6 +165,26 @@ func (ts *TestSuite) QuerySQLRESTPatch(t *testing.T, query string, body string) 
 	return patchAPI(t, ts.sqlRestServer.URL+query, body)
 }
 
+// QueryPostgRESTPut queries the PostgREST server with PUT
+func (ts *TestSuite) QueryPostgRESTPut(t *testing.T, query string, body string) compare.Response {
+	return putAPI(t, ts.config.PostgRESTURL+query, body)
+}
+
+// QuerySQLRESTPut queries the sqlrest server with PUT
+func (ts *TestSuite) QuerySQLRESTPut(t *testing.T, query string, body string) compare.Response {
+	return putAPI(t, ts.sqlRestServer.URL+query, body)
+}
+
+// QueryPostgRESTPost queries the PostgREST server with POST
+func (ts *TestSuite) QueryPostgRESTPost(t *testing.T, query string, body string, headers map[string]string) compare.Response {
+	return postAPI(t, ts.config.PostgRESTURL+query, body, headers)
+}
+
+// QuerySQLRESTPost queries the sqlrest server with POST
+func (ts *TestSuite) QuerySQLRESTPost(t *testing.T, query string, body string, headers map[string]string) compare.Response {
+	return postAPI(t, ts.sqlRestServer.URL+query, body, headers)
+}
+
 // CompareQueries compares responses from both servers
 func (ts *TestSuite) CompareQueries(t *testing.T, query string) error {
 	pgResp := ts.QueryPostgREST(t, query)
@@ -179,12 +199,27 @@ func (ts *TestSuite) ComparePatchQueries(t *testing.T, query string, body string
 	return compare.CompareResponses(pgResp, srResp)
 }
 
+// ComparePutQueries compares PUT responses from both servers
+func (ts *TestSuite) ComparePutQueries(t *testing.T, query string, body string) error {
+	pgResp := ts.QueryPostgRESTPut(t, query, body)
+	srResp := ts.QuerySQLRESTPut(t, query, body)
+	return compare.CompareResponses(pgResp, srResp)
+}
+
+// ComparePostQueries compares POST responses from both servers
+func (ts *TestSuite) ComparePostQueries(t *testing.T, query string, body string, headers map[string]string) error {
+	pgResp := ts.QueryPostgRESTPost(t, query, body, headers)
+	srResp := ts.QuerySQLRESTPost(t, query, body, headers)
+	return compare.CompareResponses(pgResp, srResp)
+}
+
 // TestCase represents a single test case
 type TestCase struct {
 	Name        string
 	Query       string
 	Method      string
 	Body        string
+	Headers     map[string]string
 	ExpectError bool
 	Description string
 }
@@ -199,6 +234,10 @@ func (ts *TestSuite) RunTestCase(t *testing.T, tc TestCase) {
 		var err error
 		if tc.Method == "PATCH" {
 			err = ts.ComparePatchQueries(t, tc.Query, tc.Body)
+		} else if tc.Method == "PUT" {
+			err = ts.ComparePutQueries(t, tc.Query, tc.Body)
+		} else if tc.Method == "POST" {
+			err = ts.ComparePostQueries(t, tc.Query, tc.Body, tc.Headers)
 		} else {
 			err = ts.CompareQueries(t, tc.Query)
 		}
@@ -270,6 +309,71 @@ func patchAPI(t *testing.T, url string, body string) compare.Response {
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("Failed to execute PATCH request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	var data interface{}
+	if len(respBody) > 0 {
+		json.Unmarshal(respBody, &data)
+	}
+
+	return compare.Response{
+		Data:       data,
+		StatusCode: resp.StatusCode,
+		Headers: map[string]string{
+			"Content-Type": resp.Header.Get("Content-Type"),
+		},
+	}
+}
+
+func putAPI(t *testing.T, url string, body string) compare.Response {
+	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("Failed to create PUT request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Failed to execute PUT request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	var data interface{}
+	if len(respBody) > 0 {
+		json.Unmarshal(respBody, &data)
+	}
+
+	return compare.Response{
+		Data:       data,
+		StatusCode: resp.StatusCode,
+		Headers: map[string]string{
+			"Content-Type": resp.Header.Get("Content-Type"),
+		},
+	}
+}
+
+func postAPI(t *testing.T, url string, body string, headers map[string]string) compare.Response {
+	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("Failed to create POST request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Add custom headers
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Failed to execute POST request: %v", err)
 	}
 	defer resp.Body.Close()
 

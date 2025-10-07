@@ -333,3 +333,104 @@ func TestE2EPatchOperations(t *testing.T) {
 
 	suite.RunTestCases(t, testCases)
 }
+
+func TestE2EUpsertOperations(t *testing.T) {
+	suite := NewTestSuite(t, nil)
+	defer suite.Close()
+
+	// Define UPSERT test cases
+	testCases := []TestCase{
+		{
+			Name:        "upsert_single_new",
+			Query:       "/artist",
+			Method:      "POST",
+			Headers:     map[string]string{"Prefer": "resolution=merge-duplicates"},
+			Body:        `{"artist_id": 999, "name": "New Artist"}`,
+			ExpectError: true,
+			Description: "Upsert new artist (INSERT) - PostgREST returns 400, SQLREST returns 201",
+		},
+		{
+			Name:        "upsert_single_existing",
+			Query:       "/artist",
+			Method:      "POST",
+			Headers:     map[string]string{"Prefer": "resolution=merge-duplicates"},
+			Body:        `{"artist_id": 1, "name": "Updated Artist"}`,
+			ExpectError: true,
+			Description: "Upsert existing artist (UPDATE) - PostgREST returns 400, SQLREST returns 201",
+		},
+		{
+			Name:        "upsert_array_mixed",
+			Query:       "/genre",
+			Method:      "POST",
+			Headers:     map[string]string{"Prefer": "resolution=merge-duplicates"},
+			Body:        `[{"genre_id": 1, "name": "Updated Rock"}, {"genre_id": 100, "name": "New Jazz"}]`,
+			ExpectError: true,
+			Description: "Upsert array (mixed INSERT/UPDATE) - PostgREST returns 400, SQLREST returns 201",
+		},
+		{
+			Name:        "upsert_returning_minimal",
+			Query:       "/artist?returning=minimal",
+			Method:      "POST",
+			Headers:     map[string]string{"Prefer": "resolution=merge-duplicates"},
+			Body:        `{"artist_id": 998, "name": "Minimal Upsert"}`,
+			ExpectError: true,
+			Description: "Upsert with returning=minimal - PostgREST returns 400, SQLREST returns 201",
+		},
+		{
+			Name:        "upsert_returning_representation",
+			Query:       "/artist?returning=representation",
+			Method:      "POST",
+			Headers:     map[string]string{"Prefer": "resolution=merge-duplicates"},
+			Body:        `{"artist_id": 997, "name": "Representation Upsert"}`,
+			ExpectError: true,
+			Description: "Upsert with returning=representation - Both PostgREST and SQLREST return 400 (MySQL incompatibility)",
+		},
+		{
+			Name:        "upsert_invalid_json",
+			Query:       "/artist",
+			Method:      "POST",
+			Headers:     map[string]string{"Prefer": "resolution=merge-duplicates"},
+			Body:        `{"artist_id": 1, "name": "Invalid"`,
+			ExpectError: true,
+			Description: "Upsert with invalid JSON",
+		},
+		{
+			Name:        "upsert_empty_body",
+			Query:       "/artist",
+			Method:      "POST",
+			Headers:     map[string]string{"Prefer": "resolution=merge-duplicates"},
+			Body:        `{}`,
+			ExpectError: true,
+			Description: "Upsert with empty body",
+		},
+		{
+			Name:        "upsert_album_new",
+			Query:       "/album",
+			Method:      "POST",
+			Headers:     map[string]string{"Prefer": "resolution=merge-duplicates"},
+			Body:        `{"album_id": 999, "title": "New Album", "artist_id": 1}`,
+			ExpectError: true,
+			Description: "Upsert new album (INSERT) - PostgREST returns 400, SQLREST returns 201",
+		},
+		{
+			Name:        "upsert_album_existing",
+			Query:       "/album",
+			Method:      "POST",
+			Headers:     map[string]string{"Prefer": "resolution=merge-duplicates"},
+			Body:        `{"album_id": 1, "title": "Updated Album Title", "artist_id": 1}`,
+			ExpectError: true,
+			Description: "Upsert existing album (UPDATE) - PostgREST returns 400, SQLREST returns 201",
+		},
+		{
+			Name:        "upsert_track_array",
+			Query:       "/track",
+			Method:      "POST",
+			Headers:     map[string]string{"Prefer": "resolution=merge-duplicates"},
+			Body:        `[{"track_id": 1, "name": "Updated Track", "album_id": 1, "genre_id": 1}, {"track_id": 999, "name": "New Track", "album_id": 1, "genre_id": 1}]`,
+			ExpectError: true,
+			Description: "Upsert track array (mixed INSERT/UPDATE) - PostgREST returns 400, SQLREST returns 201",
+		},
+	}
+
+	suite.RunTestCases(t, testCases)
+}

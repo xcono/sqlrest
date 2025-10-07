@@ -14,6 +14,7 @@ type Router struct {
 	selectHandler *SelectHandler
 	insertHandler *InsertHandler
 	updateHandler *UpdateHandler
+	upsertHandler *UpsertHandler
 	// deleteHandler *DeleteHandler  // TODO: Implement in next phase
 }
 
@@ -25,6 +26,7 @@ func NewRouter(db *database.Executor) *Router {
 		selectHandler: NewSelectHandler(queryExecutor),
 		insertHandler: NewInsertHandler(db),
 		updateHandler: NewUpdateHandler(db),
+		upsertHandler: NewUpsertHandler(db),
 		// deleteHandler: NewDeleteHandler(db),  // TODO: Implement in next phase
 	}
 }
@@ -45,9 +47,18 @@ func (r *Router) HandleTable(w http.ResponseWriter, req *http.Request) {
 	case http.MethodGet:
 		r.selectHandler.Handle(w, req, tableName)
 	case http.MethodPost:
-		r.insertHandler.Handle(w, req, tableName)
+		// Check if this is an UPSERT request (has Prefer: resolution=merge-duplicates header)
+		preferHeader := req.Header.Get("Prefer")
+		if preferHeader == "resolution=merge-duplicates" {
+			r.upsertHandler.Handle(w, req, tableName)
+		} else {
+			r.insertHandler.Handle(w, req, tableName)
+		}
 	case http.MethodPatch:
 		r.updateHandler.Handle(w, req, tableName)
+	case http.MethodPut:
+		// PUT method not used for UPSERT in PostgREST
+		response.WriteMethodNotAllowed(w, req.Method)
 	case http.MethodDelete:
 		// TODO: Implement DELETE handler
 		response.WriteMethodNotAllowed(w, req.Method)
